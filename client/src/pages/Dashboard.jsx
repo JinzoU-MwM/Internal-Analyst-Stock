@@ -147,6 +147,7 @@ export default function Dashboard() {
                     high: d.high,
                     low: d.low,
                     close: d.close,
+                    volume: d.volume,
                 }));
                 setChartData(formatted);
             } else {
@@ -361,6 +362,43 @@ export default function Dashboard() {
                                 </button>
                             )}
                         </div>
+
+                        {/* Price Summary Card */}
+                        {(() => {
+                            const latest = chartData[chartData.length - 1];
+                            const prev = chartData.length > 1 ? chartData[chartData.length - 2] : null;
+                            if (!latest) return null;
+                            const change = prev ? latest.close - prev.close : 0;
+                            const changePct = prev ? (change / prev.close) * 100 : 0;
+                            const isUp = change >= 0;
+                            const fmt = (v) => v?.toLocaleString("id-ID") ?? "-";
+                            const fmtVol = (v) => {
+                                if (!v) return "-";
+                                if (v >= 1e9) return (v / 1e9).toFixed(1) + "B";
+                                if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+                                if (v >= 1e3) return (v / 1e3).toFixed(1) + "K";
+                                return v.toString();
+                            };
+                            return (
+                                <div className="bg-surface-card border border-border rounded-2xl p-4 sm:p-5">
+                                    <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+                                        <div>
+                                            <p className="text-3xl font-bold text-text-primary">{fmt(latest.close)}</p>
+                                            <p className={`text-sm font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+                                                {isUp ? "+" : ""}{fmt(change)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-muted">
+                                            <span>O <span className="text-text-primary font-medium">{fmt(latest.open)}</span></span>
+                                            <span>H <span className="text-text-primary font-medium">{fmt(latest.high)}</span></span>
+                                            <span>L <span className="text-text-primary font-medium">{fmt(latest.low)}</span></span>
+                                            <span>C <span className="text-text-primary font-medium">{fmt(latest.close)}</span></span>
+                                            <span>Vol <span className="text-text-primary font-medium">{fmtVol(latest.volume)}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* Chart */}
                         <div className="bg-surface-card border border-border rounded-2xl p-3 sm:p-4 h-[300px] md:h-[500px]">
