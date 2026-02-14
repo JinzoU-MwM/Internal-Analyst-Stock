@@ -16,16 +16,22 @@ import { protect, authorize } from "./middleware/auth.js";
 
 const app = express();
 
-// ── Middleware ───────────────────────────────────────────────
-app.use(cors({
+const corsOptions = {
     origin: [
         "https://internal.jamnasindo.id",
         "https://internal-analyst-frontend.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-}));
+};
+app.use(cors(corsOptions));
+
+// Handle preflight immediately — don't let it fall through to DB middleware
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 
 // ── DB Connection (lazy, for serverless compatibility) ──────
