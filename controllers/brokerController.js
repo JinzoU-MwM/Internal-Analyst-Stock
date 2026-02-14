@@ -220,7 +220,16 @@ export const getSmartMoneyAccumulation = async (req, res) => {
         const smartStocks = smartAccum.activities || [];
         const retailStocks = retailDist.activities || [];
 
-        // Build a map of retail distribution by stock_code
+        // Aggregate smart money by stock_code (multiple brokers may accum same stock)
+        const smartMap = {};
+        for (const s of smartStocks) {
+            if (!smartMap[s.stock_code]) {
+                smartMap[s.stock_code] = { entries: [], stock_name: s.stock_name || "" };
+            }
+            smartMap[s.stock_code].entries.push(s);
+        }
+
+        // Aggregate retail by stock_code
         const retailMap = {};
         for (const r of retailStocks) {
             if (!retailMap[r.stock_code]) {
@@ -229,33 +238,34 @@ export const getSmartMoneyAccumulation = async (req, res) => {
             retailMap[r.stock_code].push(r);
         }
 
-        // Find stocks where smart money is accumulating AND retail is distributing
+        // Cross-reference: stocks where smart money accum AND retail distri
         const signals = [];
-        for (const s of smartStocks) {
-            const retailEntries = retailMap[s.stock_code];
-            if (retailEntries && retailEntries.length > 0) {
-                // Sum retail distribution for this stock
-                const totalRetailDist = retailEntries.reduce((sum, r) => {
-                    return sum + (parseFloat(r.net_value) || 0);
-                }, 0);
+        for (const [stockCode, smartData] of Object.entries(smartMap)) {
+            const retailEntries = retailMap[stockCode];
+            if (!retailEntries || retailEntries.length === 0) continue;
 
-                // Weighted avg price for retail
-                const retailAvgPrice = retailEntries.reduce((sum, r) => sum + (parseFloat(r.avg_price) || 0), 0) / retailEntries.length;
-                const retailFloatPl = retailEntries.reduce((sum, r) => sum + (parseFloat(r.float_pl_pct) || 0), 0) / retailEntries.length;
+            const smartEntries = smartData.entries;
 
-                signals.push({
-                    stock_code: s.stock_code,
-                    stock_name: s.stock_name || "",
-                    // Smart money info
-                    smart_net_value: parseFloat(s.net_value) || 0,
-                    smart_avg_price: parseFloat(s.avg_price) || 0,
-                    smart_float_pl: parseFloat(s.float_pl_pct) || 0,
-                    // Retail info
-                    retail_total_dist: totalRetailDist,
-                    retail_avg_price: retailAvgPrice || 0,
-                    retail_float_pl: retailFloatPl || 0,
-                });
-            }
+            // Aggregate smart money
+            const smartNetValue = smartEntries.reduce((sum, s) => sum + (parseFloat(s.net_value) || 0), 0);
+            const smartAvgPrice = smartEntries.reduce((sum, s) => sum + (parseFloat(s.avg_price) || 0), 0) / smartEntries.length;
+            const smartFloatPl = smartEntries.reduce((sum, s) => sum + (parseFloat(s.float_pl_pct) || 0), 0) / smartEntries.length;
+
+            // Aggregate retail
+            const retailTotalDist = retailEntries.reduce((sum, r) => sum + (parseFloat(r.net_value) || 0), 0);
+            const retailAvgPrice = retailEntries.reduce((sum, r) => sum + (parseFloat(r.avg_price) || 0), 0) / retailEntries.length;
+            const retailFloatPl = retailEntries.reduce((sum, r) => sum + (parseFloat(r.float_pl_pct) || 0), 0) / retailEntries.length;
+
+            signals.push({
+                stock_code: stockCode,
+                stock_name: smartData.stock_name,
+                smart_net_value: smartNetValue,
+                smart_avg_price: smartAvgPrice || 0,
+                smart_float_pl: smartFloatPl || 0,
+                retail_total_dist: retailTotalDist,
+                retail_avg_price: retailAvgPrice || 0,
+                retail_float_pl: retailFloatPl || 0,
+            });
         }
 
         // Sort by smart money net value (strongest accumulation first)
