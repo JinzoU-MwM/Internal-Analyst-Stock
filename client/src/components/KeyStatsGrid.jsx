@@ -49,7 +49,9 @@ function ValuationCard({ label, value, rawValue, thresholds }) {
 
     let badge = { text: "Fair", color: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" };
     if (thresholds) {
-        if (rawValue <= thresholds[0]) {
+        if (rawValue < 0) {
+            badge = { text: "Rugi", color: "bg-red-500/15 text-red-400 border-red-500/30" };
+        } else if (rawValue <= thresholds[0]) {
             badge = { text: "Murah", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
         } else if (rawValue >= thresholds[1]) {
             badge = { text: "Mahal", color: "bg-red-500/15 text-red-400 border-red-500/30" };
@@ -320,6 +322,11 @@ export default function KeyStatsGrid({ ticker }) {
                     <StatCard label="Beta" value={formatDec(data.beta)} />
                 </div>
             </div>
+
+            {/* ── Source Label ── */}
+            <p className="text-[10px] text-text-muted/50 text-right mt-2">
+                📡 Source: Yahoo Finance — data may differ from local providers (e.g. Stockbit)
+            </p>
         </div>
     );
 }

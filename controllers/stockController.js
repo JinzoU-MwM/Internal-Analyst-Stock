@@ -26,19 +26,24 @@ function normalizeTicker(raw) {
 export const getFundamentalStatsData = async (tickerRaw) => {
     const ticker = normalizeTicker(tickerRaw);
 
-    const result = await yahooFinance.quoteSummary(ticker, {
-        modules: [
-            "summaryDetail",
-            "financialData",
-            "defaultKeyStatistics",
-            "assetProfile",
-        ],
-    });
+    const [result, quoteData] = await Promise.all([
+        yahooFinance.quoteSummary(ticker, {
+            modules: [
+                "summaryDetail",
+                "financialData",
+                "defaultKeyStatistics",
+                "assetProfile",
+                "earningsHistory",
+            ],
+        }),
+        yahooFinance.quote(ticker).catch(() => null),
+    ]);
 
     const summary = result.summaryDetail ?? {};
     const financial = result.financialData ?? {};
     const keyStats = result.defaultKeyStatistics ?? {};
     const profile = result.assetProfile ?? {};
+    const quote = quoteData ?? {};
 
     // Check currency and convert if USD
     let currency = financial.financialCurrency || summary.currency || "IDR";
@@ -46,18 +51,36 @@ export const getFundamentalStatsData = async (tickerRaw) => {
 
     if (currency === "USD") {
         try {
-            const quote = await yahooFinance.quote("USDIDR=X");
-            if (quote && quote.regularMarketPrice) {
-                rate = quote.regularMarketPrice;
+            const fxQuote = await yahooFinance.quote("USDIDR=X");
+            if (fxQuote && fxQuote.regularMarketPrice) {
+                rate = fxQuote.regularMarketPrice;
                 currency = "IDR"; // Converted
             }
         } catch (err) {
             console.error("[StockController] Failed to fetch USDIDR rate:", err.message);
-            // Fallback: keep as USD if rate fails
         }
     }
 
     const convert = (val) => (val && rate !== 1 ? val * rate : val);
+
+    // ── Compute PE with fallback chain ──
+    const currentPrice = convert(financial.currentPrice ?? quote.regularMarketPrice ?? null);
+    const eps = quote.epsTrailingTwelveMonths ?? (keyStats.trailingEps ?? null);
+    let peRatio = summary.trailingPE ?? quote.trailingPE ?? null;
+    if (peRatio == null && currentPrice && eps && eps !== 0) {
+        peRatio = currentPrice / eps;
+    }
+
+    let forwardPE = summary.forwardPE ?? quote.forwardPE ?? null;
+    if (forwardPE == null && currentPrice && keyStats.forwardEps && keyStats.forwardEps !== 0) {
+        forwardPE = currentPrice / keyStats.forwardEps;
+    }
+
+    // ── Compute PEG with fallback chain ──
+    let pegRatio = keyStats.pegRatio ?? quote.trailingPegRatio ?? null;
+    if (pegRatio == null && peRatio && financial.earningsGrowth && financial.earningsGrowth !== 0) {
+        pegRatio = peRatio / (financial.earningsGrowth * 100);
+    }
 
     return {
         ticker,
@@ -73,10 +96,10 @@ export const getFundamentalStatsData = async (tickerRaw) => {
         // ── Valuation ───────────────────────────────────
         marketCap: convert(summary.marketCap ?? null),
         enterpriseValue: convert(keyStats.enterpriseValue ?? null),
-        peRatio: summary.trailingPE ?? null,
-        forwardPE: summary.forwardPE ?? null,
+        peRatio,
+        forwardPE,
         pbRatio: keyStats.priceToBook ?? null,
-        pegRatio: keyStats.pegRatio ?? (summary.trailingPE && financial.earningsGrowth ? summary.trailingPE / (financial.earningsGrowth * 100) : null),
+        pegRatio,
 
         // ── Profitability ───────────────────────────────
         roe: financial.returnOnEquity ?? null,
