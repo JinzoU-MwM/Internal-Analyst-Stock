@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import connectDB from "./config/db.js";
 import stockRoutes from "./routes/stockRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
@@ -19,6 +20,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ── DB Connection (lazy, for serverless compatibility) ──────
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        console.error("DB connection failed:", err.message);
+        res.status(500).json({ success: false, error: "Database connection failed" });
+    }
+});
 // ── Routes ──────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/stocks", stockRoutes);
