@@ -191,3 +191,87 @@ export const getBrokerIntelligence = async (req, res) => {
         res.status(500).json({ success: false, error: "Gagal memuat data broker intelligence" });
     }
 };
+
+/**
+ * GET /api/brokers/smart-money?lookback_days=7&limit=50
+ *
+ * Cross-references Bandar/Whale ACCUMULATION with Retail DISTRIBUTION
+ * on the same stocks to find Smart Money Accumulation signals.
+ */
+export const getSmartMoneyAccumulation = async (req, res) => {
+    try {
+        const lookback_days = req.query.lookback_days || 7;
+        const limit = req.query.limit || 50;
+
+        // Two parallel calls: smart money accumulating, retail distributing
+        const [smartAccum, retailDist] = await Promise.all([
+            fetchTrader(
+                `/market-insight/broker-intelligence?limit=${limit}&page=1&sort_by=net_value&mode=accum&lookback_days=${lookback_days}&broker_status=Bandar,Whale`
+            ),
+            fetchTrader(
+                `/market-insight/broker-intelligence?limit=${limit}&page=1&sort_by=net_value&mode=distri&lookback_days=${lookback_days}&broker_status=Retail`
+            ),
+        ]);
+
+        if (!smartAccum || !retailDist) {
+            return res.status(502).json({ success: false, error: "Upstream API tidak merespons" });
+        }
+
+        const smartStocks = smartAccum.activities || [];
+        const retailStocks = retailDist.activities || [];
+
+        // Build a map of retail distribution by stock_code
+        const retailMap = {};
+        for (const r of retailStocks) {
+            if (!retailMap[r.stock_code]) {
+                retailMap[r.stock_code] = [];
+            }
+            retailMap[r.stock_code].push(r);
+        }
+
+        // Find stocks where smart money is accumulating AND retail is distributing
+        const signals = [];
+        for (const s of smartStocks) {
+            const retailEntries = retailMap[s.stock_code];
+            if (retailEntries && retailEntries.length > 0) {
+                // Sum retail distribution for this stock
+                const totalRetailDist = retailEntries.reduce((sum, r) => {
+                    return sum + (parseFloat(r.net_value) || 0);
+                }, 0);
+
+                // Weighted avg price for retail
+                const retailAvgPrice = retailEntries.reduce((sum, r) => sum + (parseFloat(r.avg_price) || 0), 0) / retailEntries.length;
+                const retailFloatPl = retailEntries.reduce((sum, r) => sum + (parseFloat(r.float_pl_pct) || 0), 0) / retailEntries.length;
+
+                signals.push({
+                    stock_code: s.stock_code,
+                    stock_name: s.stock_name || "",
+                    // Smart money info
+                    smart_net_value: parseFloat(s.net_value) || 0,
+                    smart_avg_price: parseFloat(s.avg_price) || 0,
+                    smart_float_pl: parseFloat(s.float_pl_pct) || 0,
+                    // Retail info
+                    retail_total_dist: totalRetailDist,
+                    retail_avg_price: retailAvgPrice || 0,
+                    retail_float_pl: retailFloatPl || 0,
+                });
+            }
+        }
+
+        // Sort by smart money net value (strongest accumulation first)
+        signals.sort((a, b) => b.smart_net_value - a.smart_net_value);
+
+        res.json({
+            success: true,
+            data: {
+                signals,
+                total: signals.length,
+                lookback_days: parseInt(lookback_days),
+                total_trading_days: smartAccum.total_trading_days || 0,
+            },
+        });
+    } catch (err) {
+        console.error("Smart money error:", err.message);
+        res.status(500).json({ success: false, error: "Gagal memuat data smart money" });
+    }
+};
