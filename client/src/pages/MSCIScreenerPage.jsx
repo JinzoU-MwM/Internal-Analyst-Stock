@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
-import { createChart, LineStyle } from "lightweight-charts";
+import { createChart, LineSeries, LineStyle } from "lightweight-charts";
 import { formatNumber, formatDec, formatPct } from "../utils/formatters";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -121,7 +121,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
 
         if (tab === "mcap") {
             // Full Market Cap line
-            const fullSeries = chart.addLineSeries({
+            const fullSeries = chart.addSeries(LineSeries, {
                 color: "#22c55e",
                 lineWidth: 2,
                 title: "Full Market Cap",
@@ -133,7 +133,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
             fullSeries.setData(sorted.map(d => ({ time: d.date, value: d.fullMarketCap })));
 
             // FF Market Cap line
-            const ffSeries = chart.addLineSeries({
+            const ffSeries = chart.addSeries(LineSeries, {
                 color: "#60a5fa",
                 lineWidth: 2,
                 title: "FF Market Cap",
@@ -149,7 +149,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
             const stdFull = isSmall ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap;
             const stdFF = isSmall ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap;
 
-            const fullThreshold = chart.addLineSeries({
+            const fullThreshold = chart.addSeries(LineSeries, {
                 color: "#f87171",
                 lineWidth: 1,
                 lineStyle: LineStyle.Dashed,
@@ -160,7 +160,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
             });
             fullThreshold.setData(sorted.map(d => ({ time: d.date, value: stdFull })));
 
-            const ffThreshold = chart.addLineSeries({
+            const ffThreshold = chart.addSeries(LineSeries, {
                 color: "#38bdf8",
                 lineWidth: 1,
                 lineStyle: LineStyle.Dashed,
@@ -172,7 +172,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
             ffThreshold.setData(sorted.map(d => ({ time: d.date, value: stdFF })));
 
         } else if (tab === "price") {
-            const priceSeries = chart.addLineSeries({
+            const priceSeries = chart.addSeries(LineSeries, {
                 color: "#a78bfa",
                 lineWidth: 2,
                 title: "Close Price",
@@ -181,7 +181,7 @@ function HistoryChart({ stockCode, thresholds, member }) {
             priceSeries.setData(sorted.map(d => ({ time: d.date, value: d.closePrice })));
 
         } else if (tab === "shares") {
-            const sharesSeries = chart.addLineSeries({
+            const sharesSeries = chart.addSeries(LineSeries, {
                 color: "#fbbf24",
                 lineWidth: 2,
                 title: "Listed Shares",
@@ -226,8 +226,8 @@ function HistoryChart({ stockCode, thresholds, member }) {
                             key={t.key}
                             onClick={() => setTab(t.key)}
                             className={`px-4 py-2.5 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${tab === t.key
-                                    ? "text-accent border-b-2 border-accent"
-                                    : "text-text-muted hover:text-text-primary"
+                                ? "text-accent border-b-2 border-accent"
+                                : "text-text-muted hover:text-text-primary"
                                 }`}
                         >
                             {t.label}
