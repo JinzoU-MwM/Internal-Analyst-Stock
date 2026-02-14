@@ -65,10 +65,8 @@ export default function AppLayout({ children }) {
     const { pathname } = useLocation();
     const [drawerOpen, setDrawerOpen] = useState(false);
 
-    // Watchlist State
     const [watchlist, setWatchlist] = useState([]); // Raw user items
     const [groupedWatchlist, setGroupedWatchlist] = useState({}); // User items grouped
-    const [systemGroups, setSystemGroups] = useState({}); // Static system groups
     const [showWatchlistModal, setShowWatchlistModal] = useState(false);
     const [showUserModal, setShowUserModal] = useState(false);
 
@@ -84,7 +82,6 @@ export default function AppLayout({ children }) {
             const data = await res.json();
             if (data.success) {
                 setWatchlist(data.watchlist);
-                setSystemGroups(data.systemGroups || {});
 
                 // Group user items
                 const groups = {};
@@ -298,23 +295,6 @@ export default function AppLayout({ children }) {
                     </div>
                 </div>
 
-                {/* Conglomerates Section */}
-                <div className="mt-6 pt-4 border-t border-border/50">
-                    <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                        Conglomerates
-                    </p>
-                    <div className="space-y-1">
-                        {Object.entries(systemGroups).map(([groupName, tickers]) => (
-                            <SidebarGroup
-                                key={groupName}
-                                title={groupName}
-                                items={tickers}
-                                iconColor="bg-purple-500/50"
-                                currentPath={pathname}
-                            />
-                        ))}
-                    </div>
-                </div>
 
                 {/* Admin Section */}
                 {isAdmin && (
