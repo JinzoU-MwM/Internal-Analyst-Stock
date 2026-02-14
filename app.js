@@ -17,7 +17,14 @@ import { protect, authorize } from "./middleware/auth.js";
 const app = express();
 
 // ── Middleware ───────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+    origin: [
+        "https://internal.jamnasindo.id",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    credentials: true,
+}));
 app.use(express.json());
 
 // ── DB Connection (lazy, for serverless compatibility) ──────
