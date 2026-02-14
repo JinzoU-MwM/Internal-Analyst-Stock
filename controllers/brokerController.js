@@ -201,7 +201,7 @@ export const getBrokerIntelligence = async (req, res) => {
 export const getSmartMoneyAccumulation = async (req, res) => {
     try {
         const lookback_days = req.query.lookback_days || 7;
-        const limit = req.query.limit || 50;
+        const limit = req.query.limit || 200;
 
         // Two parallel calls: smart money accumulating, retail distributing
         const [smartAccum, retailDist] = await Promise.all([
