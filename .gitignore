@@ -3,6 +3,9 @@ node_modules/
 
 # Environment
 .env
+env_val.txt
+set_vercel_env.js
+*.key
 
 # Logs
 *.log
