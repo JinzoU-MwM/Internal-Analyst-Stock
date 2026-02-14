@@ -1,0 +1,1 @@
+mongodb+srv://jamnasindoinfo_db_user:ebGURCGrcJ8b7Act@jamnas.t7j4rh9.mongodb.net/?appName=Jamnas

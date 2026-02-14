@@ -5,7 +5,7 @@ let isConnected = false;
 const connectDB = async () => {
     if (isConnected) return;
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI, {
+        const conn = await mongoose.connect((process.env.MONGO_URI || "").trim(), {
             serverSelectionTimeoutMS: 5000,
         });
         isConnected = true;
