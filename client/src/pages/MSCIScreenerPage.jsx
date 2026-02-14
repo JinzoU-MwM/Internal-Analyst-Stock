@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
+import { createChart, LineStyle } from "lightweight-charts";
 import { formatNumber, formatDec, formatPct } from "../utils/formatters";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -61,6 +62,215 @@ function statusBadge(near) {
     return <span className="text-yellow-400 text-xs">⚠️ {near}</span>;
 }
 
+/* ────────────────────────── History Chart ────────────────────── */
+function HistoryChart({ stockCode, thresholds, member }) {
+    const chartRef = useRef(null);
+    const containerRef = useRef(null);
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [tab, setTab] = useState("mcap"); // mcap | price | shares
+
+    useEffect(() => {
+        if (!stockCode) return;
+        setLoading(true);
+        fetch(`${API}/api/msci/history/${stockCode}`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.success && d.data) setHistory(d.data);
+            })
+            .catch(() => { })
+            .finally(() => setLoading(false));
+    }, [stockCode]);
+
+    useEffect(() => {
+        if (!containerRef.current || history.length === 0) return;
+
+        // Clean up previous chart
+        if (chartRef.current) {
+            chartRef.current.remove();
+            chartRef.current = null;
+        }
+
+        const chart = createChart(containerRef.current, {
+            width: containerRef.current.clientWidth,
+            height: 320,
+            layout: {
+                background: { color: "transparent" },
+                textColor: "#9ca3af",
+                fontSize: 11,
+            },
+            grid: {
+                vertLines: { color: "rgba(255,255,255,0.04)" },
+                horzLines: { color: "rgba(255,255,255,0.04)", style: LineStyle.Dashed },
+            },
+            rightPriceScale: {
+                borderColor: "rgba(255,255,255,0.1)",
+            },
+            timeScale: {
+                borderColor: "rgba(255,255,255,0.1)",
+                timeVisible: false,
+            },
+            crosshair: {
+                horzLine: { color: "rgba(255,255,255,0.15)" },
+                vertLine: { color: "rgba(255,255,255,0.15)" },
+            },
+        });
+        chartRef.current = chart;
+
+        const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+
+        if (tab === "mcap") {
+            // Full Market Cap line
+            const fullSeries = chart.addLineSeries({
+                color: "#22c55e",
+                lineWidth: 2,
+                title: "Full Market Cap",
+                priceFormat: {
+                    type: "custom",
+                    formatter: v => msciNum(v),
+                },
+            });
+            fullSeries.setData(sorted.map(d => ({ time: d.date, value: d.fullMarketCap })));
+
+            // FF Market Cap line
+            const ffSeries = chart.addLineSeries({
+                color: "#60a5fa",
+                lineWidth: 2,
+                title: "FF Market Cap",
+                priceFormat: {
+                    type: "custom",
+                    formatter: v => msciNum(v),
+                },
+            });
+            ffSeries.setData(sorted.map(d => ({ time: d.date, value: d.freeFloatMarketCap })));
+
+            // Std Full threshold line
+            const isSmall = member === "Small Cap";
+            const stdFull = isSmall ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap;
+            const stdFF = isSmall ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap;
+
+            const fullThreshold = chart.addLineSeries({
+                color: "#f87171",
+                lineWidth: 1,
+                lineStyle: LineStyle.Dashed,
+                title: `${isSmall ? "Small" : "Std"} Full: ${msciNum(stdFull)}`,
+                crosshairMarkerVisible: false,
+                lastValueVisible: true,
+                priceFormat: { type: "custom", formatter: v => msciNum(v) },
+            });
+            fullThreshold.setData(sorted.map(d => ({ time: d.date, value: stdFull })));
+
+            const ffThreshold = chart.addLineSeries({
+                color: "#38bdf8",
+                lineWidth: 1,
+                lineStyle: LineStyle.Dashed,
+                title: `${isSmall ? "Small" : "Std"} FF: ${msciNum(stdFF)}`,
+                crosshairMarkerVisible: false,
+                lastValueVisible: true,
+                priceFormat: { type: "custom", formatter: v => msciNum(v) },
+            });
+            ffThreshold.setData(sorted.map(d => ({ time: d.date, value: stdFF })));
+
+        } else if (tab === "price") {
+            const priceSeries = chart.addLineSeries({
+                color: "#a78bfa",
+                lineWidth: 2,
+                title: "Close Price",
+                priceFormat: { type: "price", precision: 0, minMove: 1 },
+            });
+            priceSeries.setData(sorted.map(d => ({ time: d.date, value: d.closePrice })));
+
+        } else if (tab === "shares") {
+            const sharesSeries = chart.addLineSeries({
+                color: "#fbbf24",
+                lineWidth: 2,
+                title: "Listed Shares",
+                priceFormat: {
+                    type: "custom",
+                    formatter: v => msciNum(v),
+                },
+            });
+            sharesSeries.setData(sorted.map(d => ({ time: d.date, value: d.listedShares })));
+        }
+
+        chart.timeScale().fitContent();
+
+        // Resize handling
+        const ro = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                chart.applyOptions({ width: entry.contentRect.width });
+            }
+        });
+        ro.observe(containerRef.current);
+
+        return () => {
+            ro.disconnect();
+            chart.remove();
+            chartRef.current = null;
+        };
+    }, [history, tab, thresholds, member]);
+
+    const TABS = [
+        { key: "mcap", label: "MARKET CAP" },
+        { key: "price", label: "PRICE" },
+        { key: "shares", label: "SHARES" },
+    ];
+
+    return (
+        <div className="px-5 pb-4">
+            <div className="bg-surface-elevated border border-border rounded-xl overflow-hidden">
+                {/* Tabs */}
+                <div className="flex border-b border-border/50">
+                    {TABS.map(t => (
+                        <button
+                            key={t.key}
+                            onClick={() => setTab(t.key)}
+                            className={`px-4 py-2.5 text-xs font-semibold tracking-wide transition-colors cursor-pointer ${tab === t.key
+                                    ? "text-accent border-b-2 border-accent"
+                                    : "text-text-muted hover:text-text-primary"
+                                }`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Chart Title */}
+                <div className="px-4 pt-3">
+                    <p className="text-sm font-semibold text-text-primary">
+                        {tab === "mcap" ? "Market Cap History vs Thresholds" : tab === "price" ? "Price History" : "Listed Shares History"}
+                    </p>
+                </div>
+
+                {/* Chart Container */}
+                <div className="p-3">
+                    {loading ? (
+                        <div className="h-[320px] flex items-center justify-center">
+                            <div className="animate-spin h-6 w-6 border-2 border-accent border-t-transparent rounded-full"></div>
+                        </div>
+                    ) : history.length === 0 ? (
+                        <div className="h-[320px] flex items-center justify-center text-text-muted text-sm">
+                            No historical data available
+                        </div>
+                    ) : (
+                        <div ref={containerRef} />
+                    )}
+                </div>
+
+                {/* Legend for mcap tab */}
+                {tab === "mcap" && !loading && history.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-4 px-4 pb-3 text-[10px] text-text-muted">
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded"></span> Full Market Cap</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded"></span> FF Market Cap</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 border-t border-dashed border-red-400 inline-block" style={{ width: 12 }}></span> Std Full</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 border-t border-dashed border-sky-400 inline-block" style={{ width: 12 }}></span> Std FF</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 /* ────────────────────────── Detail Modal ────────────────────────── */
 function DetailModal({ stock, thresholds, onClose }) {
     if (!stock) return null;
@@ -69,17 +279,18 @@ function DetailModal({ stock, thresholds, onClose }) {
     const ffCap = stock.freeFloatMarketCap;
     const ffPct = stock.freeFloatPct;
 
-    const passFullCap = fullCap >= (stock.member === "Small Cap" ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap);
-    const passFFCap = ffCap >= (stock.member === "Small Cap" ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap);
+    const isSmall = stock.member === "Small Cap";
+    const passFullCap = fullCap >= (isSmall ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap);
+    const passFFCap = ffCap >= (isSmall ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap);
     const passFreeFloat = ffPct >= 15;
 
-    const targetFullCap = stock.member === "Small Cap" ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap;
-    const targetFFCap = stock.member === "Small Cap" ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap;
+    const targetFullCap = isSmall ? thresholds.smallFullMarketCap : thresholds.standardFullMarketCap;
+    const targetFFCap = isSmall ? thresholds.smallFreeFloatMarketCap : thresholds.standardFreeFloatMarketCap;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div
-                className="bg-surface-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in"
+                className="bg-surface-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -96,12 +307,14 @@ function DetailModal({ stock, thresholds, onClose }) {
                     <button onClick={onClose} className="text-text-muted hover:text-text-primary text-2xl cursor-pointer">✕</button>
                 </div>
 
+                {/* ── Chart with Tabs ── */}
+                <HistoryChart stockCode={stock.stockCode} thresholds={thresholds} member={stock.member} />
+
                 {/* Market Cap Cards */}
-                <div className="p-5 grid grid-cols-3 gap-3">
-                    {/* Full Market Cap */}
+                <div className="px-5 pb-4 grid grid-cols-3 gap-3">
                     <div className="bg-surface-elevated border border-border rounded-xl p-4">
                         <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Full Market Cap</p>
-                        <p className="text-2xl font-black text-text-primary">{msciNum(fullCap)}</p>
+                        <p className="text-xl font-black text-text-primary">{msciNum(fullCap)}</p>
                         <p className="text-xs mt-1">
                             Target: {msciNum(targetFullCap)}{" "}
                             <span className={passFullCap ? "text-emerald-400" : "text-red-400"}>
@@ -110,11 +323,10 @@ function DetailModal({ stock, thresholds, onClose }) {
                         </p>
                     </div>
 
-                    {/* Free Float Market Cap */}
                     <div className="bg-surface-elevated border border-accent/30 rounded-xl p-4 relative">
                         <span className="absolute -top-2 left-3 text-[9px] bg-accent text-white px-2 py-0.5 rounded-md font-semibold">PRIMARY DRIVER</span>
                         <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Free Float Cap</p>
-                        <p className="text-2xl font-black text-accent">{msciNum(ffCap)}</p>
+                        <p className="text-xl font-black text-accent">{msciNum(ffCap)}</p>
                         <p className="text-xs mt-1">
                             Target: {msciNum(targetFFCap)}{" "}
                             <span className={passFFCap ? "text-emerald-400" : "text-red-400"}>
@@ -123,10 +335,9 @@ function DetailModal({ stock, thresholds, onClose }) {
                         </p>
                     </div>
 
-                    {/* Free Float % */}
                     <div className="bg-surface-elevated border border-border rounded-xl p-4">
                         <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Free Float %</p>
-                        <p className="text-2xl font-black text-emerald-400">{formatDec(ffPct)}%</p>
+                        <p className="text-xl font-black text-emerald-400">{formatDec(ffPct)}%</p>
                         <p className="text-xs mt-1">
                             Target: 15.0%{" "}
                             <span className={passFreeFloat ? "text-emerald-400" : "text-red-400"}>
@@ -137,7 +348,7 @@ function DetailModal({ stock, thresholds, onClose }) {
                 </div>
 
                 {/* Liquidity Profile */}
-                <div className="px-5 pb-5">
+                <div className="px-5 pb-4">
                     <div className="bg-surface-elevated border border-border rounded-xl p-4">
                         <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Liquidity Profile</h4>
                         <div className="grid grid-cols-4 gap-4">
@@ -162,17 +373,6 @@ function DetailModal({ stock, thresholds, onClose }) {
                                     {stock.totalDays > 0 ? ((stock.tradedDays / stock.totalDays) * 100).toFixed(1) : 0}% active
                                 </p>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Status */}
-                <div className="px-5 pb-5">
-                    <div className="bg-surface-elevated border border-border rounded-xl p-4 flex items-center gap-3">
-                        <span className="text-lg">📊</span>
-                        <div>
-                            <p className="text-xs text-text-muted">Status</p>
-                            {statusBadge(stock.nearStatus)}
                         </div>
                     </div>
                 </div>
@@ -299,8 +499,8 @@ export default function MSCIScreenerPage() {
                             key={m}
                             onClick={() => { setMember(m); setPage(1); }}
                             className={`text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer ${member === m
-                                    ? "bg-accent text-white font-semibold"
-                                    : "text-text-muted hover:text-text-primary"
+                                ? "bg-accent text-white font-semibold"
+                                : "text-text-muted hover:text-text-primary"
                                 }`}
                         >
                             {m}

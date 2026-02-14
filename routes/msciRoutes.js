@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 
-const TRADERSAHAM_BASE = "https://api.tradersaham.com/api/analytics/screener";
+const TRADERSAHAM_API = "https://api.tradersaham.com/api";
 
 /* ── Token management ─────────────────────────────────────────── */
 let cachedToken = null;
@@ -10,11 +10,9 @@ let tokenExpiry = 0; // epoch ms
 
 /**
  * Exchange Firebase refresh-token for a fresh id-token.
- * Uses the Google securetoken endpoint (same as Firebase client SDK).
  */
 async function getAccessToken() {
     const now = Date.now();
-    // Re-use token if it's still valid (with 60s buffer)
     if (cachedToken && now < tokenExpiry - 60_000) {
         return cachedToken;
     }
@@ -49,17 +47,19 @@ async function getAccessToken() {
 }
 
 /**
- * Helper – proxy a request to tradersaham with auth.
+ * Proxy fetch with auth + required X-RQ headers.
  */
 async function proxyRequest(url) {
     const token = await getAccessToken();
+    const t = Date.now();
     return fetch(url, {
         headers: {
             authorization: `Bearer ${token}`,
             accept: "application/json",
-            "user-agent": "Mozilla/5.0",
-            origin: "https://tradersaham.com",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             referer: "https://tradersaham.com/",
+            "x-rq-t": String(t),
+            "x-rq-s": "jE" + Buffer.from(String(t)).toString("base64").slice(0, 12),
         },
     });
 }
@@ -68,22 +68,18 @@ async function proxyRequest(url) {
 
 /**
  * GET /api/msci/screener
- * Proxy to tradersaham MSCI screener API.
+ * Proxy: screener list (msci-candidates).
  */
 router.get("/screener", async (req, res) => {
     try {
         const params = new URLSearchParams(req.query).toString();
-        const url = `${TRADERSAHAM_BASE}/msci-candidates?${params}`;
+        const url = `${TRADERSAHAM_API}/analytics/screener/msci-candidates?${params}`;
 
         const response = await proxyRequest(url);
-
         if (!response.ok) {
             const text = await response.text();
             console.error("[MSCI] API error:", response.status, text);
-            return res.status(response.status).json({
-                success: false,
-                error: `Tradersaham API error: ${response.status}`,
-            });
+            return res.status(response.status).json({ success: false, error: `API error: ${response.status}` });
         }
 
         const data = await response.json();
@@ -95,28 +91,46 @@ router.get("/screener", async (req, res) => {
 });
 
 /**
- * GET /api/msci/detail/:stockCode
- * Proxy to tradersaham MSCI detail/history API.
+ * GET /api/msci/history/:stockCode
+ * Proxy: MSCI market cap history for chart.
  */
-router.get("/detail/:stockCode", async (req, res) => {
+router.get("/history/:stockCode", async (req, res) => {
     try {
         const { stockCode } = req.params;
-        const params = new URLSearchParams(req.query).toString();
-        const url = `${TRADERSAHAM_BASE}/msci-candidates/${stockCode}?${params}`;
+        const url = `${TRADERSAHAM_API}/analytics/screener/msci-history/${stockCode}`;
 
         const response = await proxyRequest(url);
-
         if (!response.ok) {
-            return res.status(response.status).json({
-                success: false,
-                error: `API error: ${response.status}`,
-            });
+            return res.status(response.status).json({ success: false, error: `API error: ${response.status}` });
         }
 
         const data = await response.json();
         return res.json({ success: true, ...data });
     } catch (error) {
-        console.error("[MSCI Detail] Error:", error.message);
+        console.error("[MSCI History] Error:", error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * GET /api/msci/ownership/:stockCode
+ * Proxy: ownership/shares data.
+ */
+router.get("/ownership/:stockCode", async (req, res) => {
+    try {
+        const { stockCode } = req.params;
+        const params = new URLSearchParams(req.query).toString();
+        const url = `${TRADERSAHAM_API}/ownership/stock/${stockCode}?${params}`;
+
+        const response = await proxyRequest(url);
+        if (!response.ok) {
+            return res.status(response.status).json({ success: false, error: `API error: ${response.status}` });
+        }
+
+        const data = await response.json();
+        return res.json({ success: true, ...data });
+    } catch (error) {
+        console.error("[MSCI Ownership] Error:", error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 });
