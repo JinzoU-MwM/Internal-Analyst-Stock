@@ -13,6 +13,7 @@ import MSCIScreenerPage from "./pages/MSCIScreenerPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProfilePage from "./pages/ProfilePage";
+import ToolsPage from "./pages/ToolsPage";
 
 /**
  * ProtectedRoute — redirects to /login if user is not authenticated.
@@ -92,6 +93,11 @@ export default function App() {
           <Route path="/msci-screener" element={
             <ProtectedRoute>
               <AppLayout><MSCIScreenerPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/tools" element={
+            <ProtectedRoute>
+              <AppLayout><ToolsPage /></AppLayout>
             </ProtectedRoute>
           } />
           <Route path="/broker" element={
