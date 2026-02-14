@@ -9,6 +9,7 @@ import InfoHarianPage from "./pages/InfoHarianPage";
 import BrokerPage from "./pages/BrokerPage";
 import ForeignFlowPage from "./pages/ForeignFlowPage"; // Clean import
 import KonglomeratPage from "./pages/KonglomeratPage";
+import MSCIScreenerPage from "./pages/MSCIScreenerPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -86,6 +87,11 @@ export default function App() {
           <Route path="/konglomerat" element={
             <ProtectedRoute>
               <AppLayout><KonglomeratPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/msci-screener" element={
+            <ProtectedRoute>
+              <AppLayout><MSCIScreenerPage /></AppLayout>
             </ProtectedRoute>
           } />
           <Route path="/broker" element={
