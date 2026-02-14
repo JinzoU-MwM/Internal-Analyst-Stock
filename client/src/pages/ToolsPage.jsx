@@ -501,8 +501,16 @@ function PositionSizingTool() {
     const [entry, setEntry] = useState(0);
     const [stoploss, setStoploss] = useState(0);
 
-
-
+    const result = useMemo(() => {
+        if (!capital || !entry || !stoploss || entry <= 0 || stoploss <= 0 || entry <= stoploss) return null;
+        const riskAmount = capital * (riskPct / 100);
+        const riskPerShare = entry - stoploss;
+        const shares = Math.floor(riskAmount / riskPerShare);
+        const lots = Math.floor(shares / LOT_SIZE);
+        const positionValue = lots * LOT_SIZE * entry;
+        const capitalUsed = (positionValue / capital) * 100;
+        return { riskAmount, riskPerShare, shares, lots, positionValue, capitalUsed };
+    }, [capital, riskPct, entry, stoploss]);
 
     return (
         <div>

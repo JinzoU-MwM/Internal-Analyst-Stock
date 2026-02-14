@@ -1,9 +1,40 @@
 import { Router } from "express";
+import YahooFinance from "yahoo-finance2";
 import { getHistoricalData } from "../services/stockService.js";
 import { getFundamentalStats } from "../controllers/stockController.js";
 import { cacheMiddleware } from "../utils/cache.js";
 
 const router = Router();
+
+/**
+ * GET /api/stocks/search?q=BB
+ * Search for IDX stocks by ticker or name.
+ * Uses yahoo-finance2 search, filtered to .JK tickers.
+ * Cached for 1 hour — ticker lists rarely change.
+ */
+router.get("/search", cacheMiddleware(3600), async (req, res) => {
+    try {
+        const q = (req.query.q || "").trim();
+        if (!q || q.length < 1) {
+            return res.json({ success: true, results: [] });
+        }
+
+        const result = await YahooFinance.search(q, { quotesCount: 20, newsCount: 0 });
+        const quotes = (result.quotes || [])
+            .filter(q => q.symbol && (q.symbol.endsWith(".JK") || q.exchange === "JKT"))
+            .map(q => ({
+                ticker: q.symbol.replace(".JK", ""),
+                name: q.shortname || q.longname || q.symbol,
+                exchange: q.exchange,
+            }))
+            .slice(0, 10);
+
+        return res.json({ success: true, results: quotes });
+    } catch (error) {
+        console.error(`[StockSearch] ${error.message}`);
+        return res.json({ success: true, results: [] });
+    }
+});
 
 /**
  * GET /api/stocks/:ticker/fundamental
@@ -13,6 +44,7 @@ const router = Router();
  * ⚠ Must be registered BEFORE /:ticker to avoid being caught by the wildcard.
  */
 router.get("/:ticker/fundamental", cacheMiddleware(900), getFundamentalStats);
+
 
 /**
  * GET /api/stocks/:ticker
