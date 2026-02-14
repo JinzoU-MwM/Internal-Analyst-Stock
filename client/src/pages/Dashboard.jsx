@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import StockChart from "../components/StockChart";
 import AnalysisHistory from "../components/AnalysisHistory";
 import AnalysisForm from "../components/AnalysisForm";
 import UserListModal from "../components/UserListModal";
+import toast from "react-hot-toast";
 
 /** Lightweight markdown → HTML renderer */
 function renderMarkdown(md) {
@@ -45,8 +47,63 @@ export default function Dashboard() {
     const [aiLoading, setAiLoading] = useState(false);
     const [showAiModal, setShowAiModal] = useState(false);
 
-    // User Modal state
-    const [showUserModal, setShowUserModal] = useState(false);
+    // Watchlist state
+    const [isInWatchlist, setIsInWatchlist] = useState(false);
+    const [watchlistLoading, setWatchlistLoading] = useState(false);
+
+    // Check if current ticker is in watchlist
+    const checkWatchlistStatus = useCallback(async (symbol) => {
+        try {
+            const token = localStorage.getItem("ia_token");
+            if (!token) return;
+
+            const res = await fetch("/api/auth/watchlist", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+                const exists = data.watchlist.some((item) => item.symbol === symbol);
+                setIsInWatchlist(exists);
+            }
+        } catch (err) {
+            console.error("Failed to check watchlist:", err);
+        }
+    }, []);
+
+    const toggleWatchlist = async () => {
+        if (!activeTicker) return;
+        setWatchlistLoading(true);
+        try {
+            const token = localStorage.getItem("ia_token");
+            const method = isInWatchlist ? "DELETE" : "POST";
+            const url = isInWatchlist
+                ? `/api/auth/watchlist/${activeTicker}`
+                : "/api/auth/watchlist";
+            const body = isInWatchlist ? undefined : JSON.stringify({ symbol: activeTicker });
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body,
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                setIsInWatchlist(!isInWatchlist);
+                toast.success(!isInWatchlist ? "Ditambahkan ke Watchlist" : "Dihapus dari Watchlist");
+                // Dispatch event to update Sidebar
+                window.dispatchEvent(new Event("watchlist-updated"));
+            }
+        } catch (err) {
+            console.error("Failed to toggle watchlist:", err);
+            toast.error("Gagal mengupdate watchlist");
+        } finally {
+            setWatchlistLoading(false);
+        }
+    };
 
     const fetchAnalyses = useCallback(async (symbol) => {
         try {
@@ -58,57 +115,75 @@ export default function Dashboard() {
         }
     }, []);
 
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Refactored fetch logic
+    const fetchStockData = useCallback(async (symbol) => {
+        if (!symbol) return;
+
+        // Auto-append .JK for Indonesian stocks
+        if (!symbol.includes(".")) {
+            symbol += ".JK";
+        }
+
+        setLoading(true);
+        setError("");
+        setChartData([]);
+        setAnalyses([]);
+        setAiInsight("");
+        setActiveTicker(symbol);
+        setTicker(symbol.split(".")[0]); // Display without .JK in input
+
+        try {
+            const [stockRes, analysisRes] = await Promise.allSettled([
+                fetch(`/api/stocks/${encodeURIComponent(symbol)}`).then((r) => r.json()),
+                fetch(`/api/analysis/${encodeURIComponent(symbol)}`).then((r) => r.json()),
+            ]);
+
+            if (stockRes.status === "fulfilled" && stockRes.value.success) {
+                const formatted = stockRes.value.data.map((d) => ({
+                    time: d.date?.split("T")[0],
+                    open: d.open,
+                    high: d.high,
+                    low: d.low,
+                    close: d.close,
+                }));
+                setChartData(formatted);
+            } else {
+                toast.error("Gagal memuat data saham. Periksa kode saham.");
+            }
+
+            if (analysisRes.status === "fulfilled" && analysisRes.value.success) {
+                setAnalyses(analysisRes.value.data);
+            }
+
+            // Check watchlist status
+            await checkWatchlistStatus(symbol);
+        } catch (err) {
+            toast.error(err.message || "Terjadi kesalahan.");
+        } finally {
+            setLoading(false);
+        }
+    }, [checkWatchlistStatus]);
+
+    // Handle URL ticker param
+    useEffect(() => {
+        const urlTicker = searchParams.get("ticker");
+        if (urlTicker && urlTicker !== activeTicker) {
+            fetchStockData(urlTicker);
+        }
+    }, [searchParams, fetchStockData]);
+
     const searchTicker = useCallback(
         async (e) => {
             e.preventDefault();
-            let symbol = ticker.trim().toUpperCase();
-            if (!symbol) return;
-
-            // Auto-append .JK for Indonesian stocks
-            if (!symbol.includes(".")) {
-                symbol += ".JK";
-            }
-
-            setLoading(true);
-            setError("");
-            setChartData([]);
-            setAnalyses([]);
-            setAiInsight("");
-            setActiveTicker(symbol);
-
-            try {
-                const [stockRes, analysisRes] = await Promise.allSettled([
-                    fetch(`/api/stocks/${encodeURIComponent(symbol)}`).then((r) =>
-                        r.json()
-                    ),
-                    fetch(`/api/analysis/${encodeURIComponent(symbol)}`).then((r) =>
-                        r.json()
-                    ),
-                ]);
-
-                if (stockRes.status === "fulfilled" && stockRes.value.success) {
-                    const formatted = stockRes.value.data.map((d) => ({
-                        time: d.date?.split("T")[0],
-                        open: d.open,
-                        high: d.high,
-                        low: d.low,
-                        close: d.close,
-                    }));
-                    setChartData(formatted);
-                } else {
-                    setError("Gagal memuat data saham. Periksa kode saham.");
-                }
-
-                if (analysisRes.status === "fulfilled" && analysisRes.value.success) {
-                    setAnalyses(analysisRes.value.data);
-                }
-            } catch (err) {
-                setError(err.message || "Terjadi kesalahan.");
-            } finally {
-                setLoading(false);
+            const symbol = ticker.trim().toUpperCase();
+            if (symbol) {
+                setSearchParams({ ticker: symbol }); // Update URL
+                // fetchStockData will be triggered by useEffect
             }
         },
-        [ticker]
+        [ticker, setSearchParams]
     );
 
     const handleAnalysisAdded = useCallback(() => {
@@ -155,44 +230,31 @@ export default function Dashboard() {
 
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-            {/* ── Search Bar & Admin Controls ───────────────────── */}
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <form onSubmit={searchTicker} className="flex-1">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            value={ticker}
-                            onChange={(e) => setTicker(e.target.value)}
-                            placeholder="Cari kode saham … contoh: BBRI, BBCA, TLKM"
-                            className="w-full bg-surface-elevated border border-border rounded-xl px-4 py-3 pl-11 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
-                        />
-                        <svg
-                            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
-                            />
-                        </svg>
-                    </div>
-                </form>
-
-                {isAdmin && (
-                    <button
-                        onClick={() => setShowUserModal(true)}
-                        className="flex items-center justify-center gap-2 bg-surface-elevated hover:bg-surface-card border border-border text-text-primary px-4 py-3 rounded-xl transition-all font-medium whitespace-nowrap cursor-pointer hover:text-accent"
-                        title="Lihat Daftar User"
+            {/* ── Search Bar ────────────────────────────────────── */}
+            <form onSubmit={searchTicker} className="mb-6">
+                <div className="relative">
+                    <input
+                        type="text"
+                        value={ticker}
+                        onChange={(e) => setTicker(e.target.value)}
+                        placeholder="Cari kode saham … contoh: BBRI, BBCA, TLKM"
+                        className="w-full bg-surface-elevated border border-border rounded-xl px-4 py-3 pl-11 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all"
+                    />
+                    <svg
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
                     >
-                        <span className="text-lg">👥</span>
-                        <span className="hidden md:inline">User List</span>
-                    </button>
-                )}
-            </div>
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                        />
+                    </svg>
+                </div>
+            </form>
 
             {/* ── Content ──────────────────────────────────────── */}
             <div>
@@ -232,11 +294,7 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {error && (
-                    <div className="bg-bear/10 border border-bear/30 text-bear rounded-xl px-4 py-3 mb-6 text-sm">
-                        {error}
-                    </div>
-                )}
+
 
                 {/* Empty state */}
                 {!loading && !activeTicker && (
@@ -275,6 +333,19 @@ export default function Dashboard() {
                                 <h2 className="text-2xl font-bold text-text-primary">
                                     {activeTicker}
                                 </h2>
+                                <button
+                                    onClick={toggleWatchlist}
+                                    disabled={watchlistLoading}
+                                    className={`p-2 rounded-full transition-colors ${isInWatchlist
+                                        ? "text-yellow-400 hover:bg-yellow-400/10"
+                                        : "text-text-muted hover:text-yellow-400 hover:bg-surface-elevated"
+                                        }`}
+                                    title={isInWatchlist ? "Hapus dari Watchlist" : "Tambah ke Watchlist"}
+                                >
+                                    <svg className="w-6 h-6" fill={isInWatchlist ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                    </svg>
+                                </button>
                                 <span className="text-xs text-text-muted bg-surface-elevated px-2 py-1 rounded-full">
                                     {chartData.length} candle
                                 </span>
@@ -406,10 +477,15 @@ export default function Dashboard() {
                                             });
                                             const data = await res.json();
                                             if (data.success) {
+                                                toast.success("Analisis AI berhasil disimpan!");
                                                 fetchAnalyses(activeTicker);
                                                 setShowAiModal(false);
+                                            } else {
+                                                toast.error(data.error || "Gagal menyimpan analisis");
                                             }
-                                        } catch { /* silent */ }
+                                        } catch {
+                                            toast.error("Terjadi kesalahan saat menyimpan");
+                                        }
                                     }}
                                     className="flex items-center gap-2 text-sm font-medium bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-400 text-white px-4 py-2.5 rounded-lg transition-all cursor-pointer shadow-lg shadow-accent/20"
                                 >
@@ -429,11 +505,6 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
-
-            <UserListModal
-                isOpen={showUserModal}
-                onClose={() => setShowUserModal(false)}
-            />
         </div>
     );
 }

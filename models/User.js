@@ -33,6 +33,13 @@ const userSchema = new mongoose.Schema(
             },
             default: "user",
         },
+        watchlist: [
+            {
+                symbol: { type: String, required: true },
+                group: { type: String, default: "General" },
+                addedAt: { type: Date, default: Date.now },
+            },
+        ],
     },
     {
         timestamps: true,

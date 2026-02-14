@@ -3,6 +3,12 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import FundamentalPage from "./pages/FundamentalPage";
+import ComparisonPage from "./pages/ComparisonPage";
+import OwnershipPage from "./pages/OwnershipPage";
+import InfoHarianPage from "./pages/InfoHarianPage";
+import BrokerPage from "./pages/BrokerPage";
+import ForeignFlowPage from "./pages/ForeignFlowPage"; // Clean import
+import KonglomeratPage from "./pages/KonglomeratPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
@@ -22,9 +28,18 @@ function GuestRoute({ children }) {
   return isAuthenticated ? <Navigate to="/" replace /> : children;
 }
 
+import { Toaster } from 'react-hot-toast';
+
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster position="top-center" toastOptions={{
+        style: {
+          background: '#1e1e1e',
+          color: '#e0e0e0',
+          border: '1px solid #2d2d2d',
+        },
+      }} />
       <AuthProvider>
         <Routes>
           {/* Auth pages — only for guests (no sidebar) */}
@@ -47,6 +62,40 @@ export default function App() {
               <AppLayout><FundamentalPage /></AppLayout>
             </ProtectedRoute>
           } />
+          <Route path="/comparison" element={
+            <ProtectedRoute>
+              <AppLayout><ComparisonPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/ownership" element={
+            <ProtectedRoute>
+              <AppLayout><OwnershipPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/info-harian" element={
+            <ProtectedRoute>
+              <AppLayout><InfoHarianPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/foreign-flow" element={
+            <ProtectedRoute>
+              <AppLayout><ForeignFlowPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/konglomerat" element={
+            <ProtectedRoute>
+              <AppLayout><KonglomeratPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/broker" element={
+            <ProtectedRoute>
+              <AppLayout><BrokerPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          {/* Backward-compatible redirects */}
+          <Route path="/broker-analysis" element={<Navigate to="/broker" replace />} />
+          <Route path="/broksum" element={<Navigate to="/broker" replace />} />
+          <Route path="/broker-intel" element={<Navigate to="/broker" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

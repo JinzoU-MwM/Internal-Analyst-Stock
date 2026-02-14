@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { SYSTEM_GROUPS } from "../utils/conglomerates.js";
+import { logError } from "../utils/logger.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_fallback_secret";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -115,9 +117,10 @@ export const login = async (req, res) => {
         });
     } catch (error) {
         console.error(`[AuthController] login: ${error.message}`);
+        logError("Login failed", error);
         return res.status(500).json({
             success: false,
-            error: "Gagal login",
+            error: `Gagal login: ${error.message}`,
         });
     }
 };
@@ -175,5 +178,145 @@ export const getAllUsers = async (req, res) => {
             success: false,
             error: "Gagal memuat data user",
         });
+    }
+};
+
+/**
+ * GET /api/auth/watchlist
+ * Get current user's watchlist
+ */
+export const getWatchlist = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select("watchlist");
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User tidak ditemukan" });
+        }
+        return res.json({
+            success: true,
+            watchlist: user.watchlist,
+            systemGroups: SYSTEM_GROUPS,
+        });
+    } catch (error) {
+        console.error(`[AuthController] getWatchlist: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal memuat watchlist" });
+    }
+};
+
+/**
+ * POST /api/auth/watchlist
+ * Add symbol to watchlist
+ * Body: { symbol }
+ */
+export const addToWatchlist = async (req, res) => {
+    try {
+        const { symbol, group } = req.body;
+        if (!symbol) {
+            return res.status(400).json({ success: false, error: "Symbol wajib diisi" });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User tidak ditemukan" });
+        }
+
+        // Check if symbol already exists
+        const exists = user.watchlist.some((item) => item.symbol === symbol);
+        if (exists) {
+            return res.status(400).json({ success: false, error: "Saham sudah ada di watchlist" });
+        }
+
+        user.watchlist.push({
+            symbol,
+            group: group || "General"
+        });
+        await user.save();
+
+        return res.json({
+            success: true,
+            watchlist: user.watchlist,
+        });
+    } catch (error) {
+        console.error(`[AuthController] addToWatchlist: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal menambahkan ke watchlist" });
+    }
+};
+
+/**
+ * DELETE /api/auth/watchlist/:symbol
+ * Remove symbol from watchlist
+ */
+export const removeFromWatchlist = async (req, res) => {
+    try {
+        const { symbol } = req.params;
+
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User tidak ditemukan" });
+        }
+
+        user.watchlist = user.watchlist.filter((item) => item.symbol !== symbol);
+        await user.save();
+
+        return res.json({
+            success: true,
+            watchlist: user.watchlist,
+        });
+    } catch (error) {
+        console.error(`[AuthController] removeFromWatchlist: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal menghapus dari watchlist" });
+    }
+};
+
+/**
+ * PUT /api/auth/watchlist/group
+ * Rename a group
+ * Body: { oldName, newName }
+ */
+export const renameGroup = async (req, res) => {
+    try {
+        const { oldName, newName } = req.body;
+        if (!oldName || !newName) return res.status(400).json({ error: "Missing names" });
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        let updated = false;
+        user.watchlist.forEach(item => {
+            if (item.group === oldName) {
+                item.group = newName;
+                updated = true;
+            }
+        });
+
+        if (updated) await user.save();
+
+        return res.json({ success: true, watchlist: user.watchlist });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * PUT /api/auth/watchlist/:symbol
+ * Move a stock to another group
+ * Body: { group }
+ */
+export const updateWatchlistItem = async (req, res) => {
+    try {
+        const { symbol } = req.params;
+        const { group } = req.body;
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const item = user.watchlist.find(i => i.symbol === symbol);
+        if (!item) return res.status(404).json({ error: "Symbol not in watchlist" });
+
+        item.group = group || "General";
+        await user.save();
+
+        return res.json({ success: true, watchlist: user.watchlist });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
 };

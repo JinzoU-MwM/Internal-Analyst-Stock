@@ -5,6 +5,11 @@ import analysisRoutes from "./routes/analysisRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import fundamentalRoutes from "./routes/fundamentalRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import ownershipRoutes from "./routes/ownershipRoutes.js";
+import disclosureRoutes from "./routes/disclosureRoutes.js";
+import brokerRoutes from "./routes/brokerRoutes.js";
+import marketRoutes from "./routes/marketRoutes.js";
+import konglomeratRoutes from "./routes/konglomeratRoutes.js";
 import { cache } from "./utils/cache.js";
 import { protect, authorize } from "./middleware/auth.js";
 
@@ -20,6 +25,12 @@ app.use("/api/stocks", stockRoutes);
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/ai-insight", aiRoutes);
 app.use("/api/fundamental-notes", fundamentalRoutes);
+app.use("/api/ownership", ownershipRoutes);
+app.use("/api/disclosures", disclosureRoutes);
+app.use("/api/brokers", brokerRoutes);
+app.use("/api/market", marketRoutes);
+app.use("/api/konglomerat", konglomeratRoutes);
+
 
 // ── Cache management (admin only) ───────────────────────────
 app.get("/api/cache/stats", protect, authorize("admin"), (_req, res) => {
@@ -35,6 +46,15 @@ app.get("/", (_req, res) => {
     res.json({
         status: "ok",
         message: "Internal Analyst Stock API is running",
+    });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(`[GlobalError] ${err.stack}`);
+    res.status(500).json({
+        success: false,
+        error: process.env.NODE_ENV === "development" ? err.message : "Internal Server Error",
     });
 });
 

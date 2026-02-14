@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import RichEditor from "./RichEditor";
 
 const INITIAL = {
@@ -20,16 +21,12 @@ const INITIAL = {
 export default function AnalysisForm({ ticker, onAnalysisAdded }) {
     const [form, setForm] = useState(INITIAL);
     const [submitting, setSubmitting] = useState(false);
-    const [success, setSuccess] = useState("");
-    const [error, setError] = useState("");
 
     const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
-        setError("");
-        setSuccess("");
 
         try {
             const body = {
@@ -62,14 +59,11 @@ export default function AnalysisForm({ ticker, onAnalysisAdded }) {
                 );
             }
 
-            setSuccess("Analysis submitted successfully!");
+            toast.success("Analisis berhasil disimpan!");
             setForm(INITIAL);
             onAnalysisAdded?.();
-
-            // Auto-clear success message
-            setTimeout(() => setSuccess(""), 4000);
         } catch (err) {
-            setError(err.message);
+            toast.error(err.message);
         } finally {
             setSubmitting(false);
         }
@@ -92,17 +86,7 @@ export default function AnalysisForm({ ticker, onAnalysisAdded }) {
                 </span>
             </h4>
 
-            {/* Success / Error banners */}
-            {success && (
-                <div className="bg-bull/10 border border-bull/30 text-bull rounded-lg px-3 py-2 text-sm animate-fade-in">
-                    {success}
-                </div>
-            )}
-            {error && (
-                <div className="bg-bear/10 border border-bear/30 text-bear rounded-lg px-3 py-2 text-sm">
-                    {error}
-                </div>
-            )}
+
 
             {/* Row 1 — Analyst / Action / Timeframe */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

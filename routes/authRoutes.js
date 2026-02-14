@@ -1,5 +1,15 @@
 import { Router } from "express";
-import { register, login, getMe, getAllUsers } from "../controllers/authController.js";
+import {
+    register,
+    login,
+    getMe,
+    getAllUsers,
+    getWatchlist,
+    addToWatchlist,
+    removeFromWatchlist,
+    renameGroup,
+    updateWatchlistItem,
+} from "../controllers/authController.js";
 import { protect, admin } from "../middleware/auth.js";
 
 const router = Router();
@@ -13,5 +23,12 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
 router.get("/users", protect, admin, getAllUsers);
+
+// Watchlist routes
+router.get("/watchlist", protect, getWatchlist);
+router.post("/watchlist", protect, addToWatchlist);
+router.put("/watchlist/group", protect, renameGroup);
+router.put("/watchlist/:symbol", protect, updateWatchlistItem);
+router.delete("/watchlist/:symbol", protect, removeFromWatchlist);
 
 export default router;

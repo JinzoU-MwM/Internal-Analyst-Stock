@@ -1,21 +1,114 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import UserListModal from "./UserListModal"; // Import modal
+import UserListModal from "./UserListModal";
+import WatchlistManagerModal from "./WatchlistManagerModal";
 
-/**
- * AppLayout — Responsive shell with sidebar navigation.
- *
- * - Desktop (lg+):  Fixed sidebar w-64 on the left
- * - Tablet/Mobile:  Top navbar with hamburger → slide-over drawer
- *
- * Wraps page content via {children}.
- */
+// Helper Component for Collapsible Groups
+// Helper to build the correct URL based on current page
+const getTickerUrl = (ticker, currentPath) => {
+    // Detect which page we're on
+    if (currentPath.startsWith("/ownership")) return `/ownership?ticker=${ticker}`;
+    if (currentPath.startsWith("/comparison")) return `/comparison?ticker=${ticker}`;
+    if (currentPath.startsWith("/fundamental")) return `/fundamental/${ticker}`;
+    // Default: if on dashboard (/) or unknown, go to fundamental
+    return `/fundamental/${ticker}`;
+};
+
+const SidebarGroup = ({ title, items, defaultOpen = false, iconColor = "bg-accent/50", currentPath = "/" }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    if (!items || items.length === 0) return null;
+
+    return (
+        <div className="px-2">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-2 py-1.5 mb-1 bg-surface-elevated/30 hover:bg-surface-elevated/50 rounded text-xs font-medium text-text-primary transition-colors group"
+            >
+                <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full ${iconColor}`} />
+                    {title}
+                </div>
+                <svg
+                    className={`w-3 h-3 text-text-muted transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+
+            {isOpen && (
+                <div className="space-y-0.5 ml-1 border-l-2 border-border/50 pl-2 animate-fade-in-down origin-top">
+                    {items.map((item) => {
+                        const symbol = item.symbol || item;
+                        return (
+                            <Link
+                                key={symbol}
+                                to={getTickerUrl(symbol, currentPath)}
+                                className="block px-2 py-1.5 rounded text-xs text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-colors truncate"
+                            >
+                                {symbol}
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default function AppLayout({ children }) {
     const { user, isAdmin, logout } = useAuth();
     const { pathname } = useLocation();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [showUserModal, setShowUserModal] = useState(false); // New state
+
+    // Watchlist State
+    const [watchlist, setWatchlist] = useState([]); // Raw user items
+    const [groupedWatchlist, setGroupedWatchlist] = useState({}); // User items grouped
+    const [systemGroups, setSystemGroups] = useState({}); // Static system groups
+    const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+    const [showUserModal, setShowUserModal] = useState(false);
+
+    // Fetch watchlist on mount
+    const fetchWatchlist = async () => {
+        try {
+            const token = user?.token || localStorage.getItem("ia_token");
+            if (!token) return;
+
+            const res = await fetch("/api/auth/watchlist", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+                setWatchlist(data.watchlist);
+                setSystemGroups(data.systemGroups || {});
+
+                // Group user items
+                const groups = {};
+                data.watchlist.forEach(item => {
+                    const g = item.group || "General";
+                    if (!groups[g]) groups[g] = [];
+                    groups[g].push(item);
+                });
+                setGroupedWatchlist(groups);
+            }
+        } catch (err) {
+            console.error("Failed to fetch watchlist:", err);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchWatchlist();
+        }
+
+        const handleWatchlistUpdate = () => fetchWatchlist();
+        window.addEventListener("watchlist-updated", handleWatchlistUpdate);
+        return () => window.removeEventListener("watchlist-updated", handleWatchlistUpdate);
+    }, [user]);
 
     // Close drawer on route change
     useEffect(() => {
@@ -50,6 +143,60 @@ export default function AppLayout({ children }) {
                 </svg>
             ),
         },
+        {
+            label: "Comparison",
+            to: "/comparison",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+            ),
+        },
+        {
+            label: "Ownership",
+            to: "/ownership",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            ),
+        },
+        {
+            label: "Info Harian",
+            to: "/info-harian",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+            ),
+        },
+        {
+            label: "Foreign Flow",
+            to: "/foreign-flow",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            ),
+        },
+        {
+            label: "Konglomerat",
+            to: "/konglomerat",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            ),
+        },
+        {
+            label: "Broker",
+            to: "/broker",
+            icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            ),
+        },
     ];
 
     const isActive = (to) => {
@@ -76,23 +223,98 @@ export default function AppLayout({ children }) {
             </div>
 
             {/* Nav links */}
-            <nav className="flex-1 px-3 py-4 space-y-1">
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                     Menu
                 </p>
-                {navItems.map((item) => (
-                    <Link
-                        key={item.to}
-                        to={item.to}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive(item.to)
-                            ? "bg-accent/10 text-accent shadow-sm"
-                            : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
-                            }`}
-                    >
-                        {item.icon}
-                        {item.label}
-                    </Link>
-                ))}
+                {navItems.map((item) =>
+                    item.subItems ? (
+                        <div key={item.label}>
+                            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${item.subItems.some((s) => isActive(s.to))
+                                ? "text-accent"
+                                : "text-text-muted"
+                                }`}>
+                                {item.icon}
+                                {item.label}
+                            </div>
+                            <div className="ml-8 space-y-0.5 mt-0.5">
+                                {item.subItems.map((sub) => (
+                                    <Link
+                                        key={sub.to}
+                                        to={sub.to}
+                                        className={`block px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isActive(sub.to)
+                                            ? "bg-accent/10 text-accent"
+                                            : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
+                                            }`}
+                                    >
+                                        {sub.label}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive(item.to)
+                                ? "bg-accent/10 text-accent shadow-sm"
+                                : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
+                                }`}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </Link>
+                    )
+                )}
+
+                {/* Watchlist Section */}
+                <div className="mt-6 pt-4 border-t border-border/50">
+                    <div className="px-3 mb-2 flex items-center justify-between group">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                            My Watchlist
+                        </p>
+                        <button
+                            onClick={() => setShowWatchlistModal(true)}
+                            className="text-text-muted hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Manage Watchlist"
+                        >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="space-y-1">
+                        {Object.entries(groupedWatchlist).map(([groupName, items]) => (
+                            <SidebarGroup
+                                key={groupName}
+                                title={`${groupName} (${items.length})`}
+                                items={items}
+                                defaultOpen={true}
+                                currentPath={pathname}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Conglomerates Section */}
+                <div className="mt-6 pt-4 border-t border-border/50">
+                    <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                        Conglomerates
+                    </p>
+                    <div className="space-y-1">
+                        {Object.entries(systemGroups).map(([groupName, tickers]) => (
+                            <SidebarGroup
+                                key={groupName}
+                                title={groupName}
+                                items={tickers}
+                                iconColor="bg-purple-500/50"
+                                currentPath={pathname}
+                            />
+                        ))}
+                    </div>
+                </div>
 
                 {/* Admin Section */}
                 {isAdmin && (
@@ -230,6 +452,12 @@ export default function AppLayout({ children }) {
             <UserListModal
                 isOpen={showUserModal}
                 onClose={() => setShowUserModal(false)}
+            />
+            <WatchlistManagerModal
+                isOpen={showWatchlistModal}
+                onClose={() => setShowWatchlistModal(false)}
+                watchlist={watchlist}
+                onUpdate={fetchWatchlist}
             />
         </div>
     );

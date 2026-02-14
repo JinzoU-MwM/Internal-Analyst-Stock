@@ -30,7 +30,15 @@ export function AuthProvider({ children }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
             });
-            const data = await res.json();
+
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("Login response parse error:", text);
+                return { success: false, error: "Server Error: Invalid response format" };
+            }
 
             if (data.success) {
                 localStorage.setItem("ia_token", data.token);
