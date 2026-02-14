@@ -11,6 +11,7 @@ import ForeignFlowPage from "./pages/ForeignFlowPage"; // Clean import
 import KonglomeratPage from "./pages/KonglomeratPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ProfilePage from "./pages/ProfilePage";
 
 /**
  * ProtectedRoute — redirects to /login if user is not authenticated.
@@ -90,6 +91,11 @@ export default function App() {
           <Route path="/broker" element={
             <ProtectedRoute>
               <AppLayout><BrokerPage /></AppLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <AppLayout><ProfilePage /></AppLayout>
             </ProtectedRoute>
           } />
           {/* Backward-compatible redirects */}

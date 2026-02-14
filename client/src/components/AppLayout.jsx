@@ -337,13 +337,13 @@ export default function AppLayout({ children }) {
 
             {/* User section */}
             <div className="border-t border-border/50 px-4 py-4">
-                <div className="flex items-center gap-3 mb-3">
+                <Link to="/profile" className="flex items-center gap-3 mb-3 hover:bg-surface-elevated rounded-xl p-1.5 -m-1.5 transition-colors">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent/20 to-purple-500/20 flex items-center justify-center text-accent text-sm font-bold shrink-0">
-                        {user?.username?.[0]?.toUpperCase() || "U"}
+                        {(user?.displayName || user?.username)?.[0]?.toUpperCase() || "U"}
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">
-                            {user?.username}
+                            {user?.displayName || user?.username}
                         </p>
                         <p className="text-[11px] text-text-muted truncate">
                             {isAdmin ? (
@@ -356,7 +356,7 @@ export default function AppLayout({ children }) {
                             )}
                         </p>
                     </div>
-                </div>
+                </Link>
                 <button
                     onClick={logout}
                     className="w-full flex items-center justify-center gap-2 text-sm text-text-muted hover:text-bear px-3 py-2 rounded-lg hover:bg-bear/10 transition-all cursor-pointer"

@@ -6,6 +6,20 @@ import { logError } from "../utils/logger.js";
 const JWT_SECRET = process.env.JWT_SECRET || "dev_fallback_secret";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
+/** Build a safe user response object (no password) */
+function userResponse(user) {
+    return {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        displayName: user.displayName || user.username,
+        bio: user.bio || "",
+        avatarUrl: user.avatarUrl || "",
+        createdAt: user.createdAt,
+    };
+}
+
 /** Helper: generate a signed JWT */
 function signToken(user) {
     return jwt.sign(
@@ -43,12 +57,7 @@ export const register = async (req, res) => {
         return res.status(201).json({
             success: true,
             token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-            },
+            user: userResponse(user),
         });
     } catch (error) {
         if (error.name === "ValidationError") {
@@ -108,12 +117,7 @@ export const login = async (req, res) => {
         return res.json({
             success: true,
             token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-            },
+            user: userResponse(user),
         });
     } catch (error) {
         console.error(`[AuthController] login: ${error.message}`);
@@ -140,15 +144,9 @@ export const getMe = async (req, res) => {
             });
         }
 
-        // ... existing code ...
         return res.json({
             success: true,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-            },
+            user: userResponse(user),
         });
     } catch (error) {
         console.error(`[AuthController] getMe: ${error.message}`);
@@ -318,5 +316,82 @@ export const updateWatchlistItem = async (req, res) => {
         return res.json({ success: true, watchlist: user.watchlist });
     } catch (error) {
         return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * PUT /api/auth/profile
+ * Update user profile (displayName, bio).
+ * Body: { displayName?, bio? }
+ */
+export const updateProfile = async (req, res) => {
+    try {
+        const { displayName, bio } = req.body;
+        const updates = {};
+
+        if (displayName !== undefined) updates.displayName = displayName;
+        if (bio !== undefined) updates.bio = bio;
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
+
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User tidak ditemukan" });
+        }
+
+        return res.json({ success: true, user: userResponse(user) });
+    } catch (error) {
+        if (error.name === "ValidationError") {
+            const messages = Object.values(error.errors).map((e) => e.message);
+            return res.status(400).json({ success: false, error: messages.join(", ") });
+        }
+        console.error(`[AuthController] updateProfile: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal update profil" });
+    }
+};
+
+/**
+ * PUT /api/auth/change-password
+ * Change password (requires old password verification).
+ * Body: { oldPassword, newPassword }
+ */
+export const changePassword = async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                error: "Password lama dan baru wajib diisi",
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: "Password baru minimal 6 karakter",
+            });
+        }
+
+        const user = await User.findById(req.user.id).select("+password");
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User tidak ditemukan" });
+        }
+
+        const isMatch = await user.comparePassword(oldPassword);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, error: "Password lama salah" });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        return res.json({ success: true, message: "Password berhasil diubah" });
+    } catch (error) {
+        console.error(`[AuthController] changePassword: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal mengubah password" });
     }
 };

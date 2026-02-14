@@ -9,6 +9,8 @@ import {
     removeFromWatchlist,
     renameGroup,
     updateWatchlistItem,
+    updateProfile,
+    changePassword,
 } from "../controllers/authController.js";
 import { protect, admin } from "../middleware/auth.js";
 
@@ -23,6 +25,10 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
 router.get("/users", protect, admin, getAllUsers);
+
+// Profile routes
+router.put("/profile", protect, updateProfile);
+router.put("/change-password", protect, changePassword);
 
 // Watchlist routes
 router.get("/watchlist", protect, getWatchlist);

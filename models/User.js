@@ -33,6 +33,23 @@ const userSchema = new mongoose.Schema(
             },
             default: "user",
         },
+        displayName: {
+            type: String,
+            trim: true,
+            maxlength: [50, "Display name cannot exceed 50 characters"],
+            default: "",
+        },
+        bio: {
+            type: String,
+            trim: true,
+            maxlength: [200, "Bio cannot exceed 200 characters"],
+            default: "",
+        },
+        avatarUrl: {
+            type: String,
+            trim: true,
+            default: "",
+        },
         watchlist: [
             {
                 symbol: { type: String, required: true },

@@ -117,6 +117,31 @@ export function AuthProvider({ children }) {
             .catch(() => logout());
     }, []); // only on mount
 
+    /**
+     * updateProfile — PUT /api/auth/profile, update user state.
+     */
+    const updateProfile = useCallback(async (profileData) => {
+        try {
+            const res = await fetch("/api/auth/profile", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(profileData),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setUser(data.user);
+                localStorage.setItem("ia_user", JSON.stringify(data.user));
+                return { success: true, user: data.user };
+            }
+            return { success: false, error: data.error || "Update gagal" };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    }, [token]);
+
     const value = {
         user,
         token,
@@ -126,6 +151,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
+        updateProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
