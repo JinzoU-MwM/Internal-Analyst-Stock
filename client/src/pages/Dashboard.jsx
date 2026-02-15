@@ -6,6 +6,7 @@ import AnalysisHistory from "../components/AnalysisHistory";
 import AnalysisForm from "../components/AnalysisForm";
 import UserListModal from "../components/UserListModal";
 import toast from "react-hot-toast";
+import WelcomeHint from "../components/WelcomeHint";
 
 /** Lightweight markdown → HTML renderer */
 function renderMarkdown(md) {
@@ -297,32 +298,24 @@ export default function Dashboard() {
 
 
 
-                {/* Empty state */}
+                {/* Empty state — onboarding */}
                 {!loading && !activeTicker && (
-                    <div className="flex flex-col items-center justify-center py-32 text-text-muted">
-                        <svg
-                            className="w-16 h-16 mb-4 opacity-30"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1}
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 13l4-4 4 4 4-8 4 4"
-                            />
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 17h18"
-                            />
-                        </svg>
-                        <p className="text-lg font-medium">
-                            Masukkan kode saham untuk memulai
-                        </p>
-                        <p className="text-sm mt-1">contoh: BBRI, BBCA, TLKM</p>
-                    </div>
+                    <WelcomeHint
+                        icon="📈"
+                        title="Selamat Datang di Internal Analyst"
+                        subtitle="Dashboard analisis saham lengkap untuk investor Indonesia. Mulai dengan mencari kode saham di kolom pencarian di atas."
+                        tips={[
+                            { icon: "🔍", text: "Ketik kode saham (contoh: BBRI, BBCA, TLKM) lalu tekan Enter" },
+                            { icon: "📊", text: "Lihat grafik harga, volume, dan statistik real-time" },
+                            { icon: "🤖", text: "Gunakan AI Insight untuk analisis otomatis" },
+                            { icon: "⭐", text: "Simpan saham favorit ke Watchlist di sidebar kiri" },
+                        ]}
+                        actions={[
+                            { label: "🏦 Bandingkan Saham", to: "/comparison" },
+                            { label: "📋 Fundamental", to: "/fundamental" },
+                            { label: "🔧 Tools Kalkulator", to: "/tools" },
+                        ]}
+                    />
                 )}
 
                 {/* Chart + Analysis layout */}
