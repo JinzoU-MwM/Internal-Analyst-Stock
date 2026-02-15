@@ -344,16 +344,14 @@ export default function Dashboard() {
                                     {chartData.length} candle
                                 </span>
                             </div>
-                            {isAdmin && (
-                                <button
-                                    onClick={generateAiInsight}
-                                    disabled={aiLoading}
-                                    className="flex items-center gap-2 bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-400 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-accent/20"
-                                >
-                                    <span className="text-base">✨</span>
-                                    {aiLoading ? "Menganalisis…" : "Analisis AI"}
-                                </button>
-                            )}
+                            <button
+                                onClick={generateAiInsight}
+                                disabled={aiLoading}
+                                className="flex items-center gap-2 bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-400 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-accent/20"
+                            >
+                                <span className="text-base">✨</span>
+                                {aiLoading ? "Menganalisis…" : "Analisis AI"}
+                            </button>
                         </div>
 
                         {/* Price Summary Card */}
