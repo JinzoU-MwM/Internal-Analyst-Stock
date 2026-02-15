@@ -397,23 +397,6 @@ export default function AppLayout({ children }) {
                             </span>
                         </div>
                     </div>
-
-                    {/* Quick nav pills on mobile */}
-                    <nav className="flex items-center gap-1">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.to}
-                                to={item.to}
-                                className={`p-2 rounded-lg transition-all ${isActive(item.to)
-                                    ? "bg-accent/10 text-accent"
-                                    : "text-text-muted hover:bg-surface-elevated"
-                                    }`}
-                                title={item.label}
-                            >
-                                {item.icon}
-                            </Link>
-                        ))}
-                    </nav>
                 </div>
             </header>
 
