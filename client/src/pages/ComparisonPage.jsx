@@ -30,34 +30,34 @@ const METRICS = [
     {
         section: "Valuasi", rows: [
             { label: "Market Cap", key: "marketCap", format: "number", better: "higher" },
-            { label: "PER (TTM)", key: "peRatio", format: "dec", better: "lower" },
-            { label: "Forward PE", key: "forwardPE", format: "dec", better: "lower" },
-            { label: "PBV", key: "pbRatio", format: "dec", better: "lower" },
-            { label: "PEG Ratio", key: "pegRatio", format: "dec", better: "lower" },
+            { label: "PER (TTM)", key: "peRatio", format: "dec", better: "lower", maxAbs: 500 },
+            { label: "Forward PE", key: "forwardPE", format: "dec", better: "lower", maxAbs: 500 },
+            { label: "PBV", key: "pbRatio", format: "dec", better: "lower", maxAbs: 200 },
+            { label: "PEG Ratio", key: "pegRatio", format: "dec", better: "lower", maxAbs: 50 },
         ]
     },
     {
         section: "Profitabilitas", rows: [
-            { label: "ROE", key: "roe", format: "pct", better: "higher", colorFn: true },
-            { label: "ROA", key: "roa", format: "pct", better: "higher", colorFn: true },
-            { label: "Profit Margin", key: "profitMargin", format: "pct", better: "higher", colorFn: true },
-            { label: "Operating Margin", key: "operatingMargin", format: "pct", better: "higher", colorFn: true },
-            { label: "Gross Margin", key: "grossMargin", format: "pct", better: "higher", colorFn: true },
+            { label: "ROE", key: "roe", format: "pct", better: "higher", colorFn: true, maxAbs: 10 },
+            { label: "ROA", key: "roa", format: "pct", better: "higher", colorFn: true, maxAbs: 5 },
+            { label: "Profit Margin", key: "profitMargin", format: "pct", better: "higher", colorFn: true, maxAbs: 10 },
+            { label: "Operating Margin", key: "operatingMargin", format: "pct", better: "higher", colorFn: true, maxAbs: 10 },
+            { label: "Gross Margin", key: "grossMargin", format: "pct", better: "higher", colorFn: true, maxAbs: 10 },
         ]
     },
     {
         section: "Dividen", rows: [
-            { label: "Yield", key: "dividendYield", format: "pct", better: "higher" },
-            { label: "Payout Ratio", key: "payoutRatio", format: "pct", better: null },
+            { label: "Yield", key: "dividendYield", format: "pct", better: "higher", maxAbs: 1 },
+            { label: "Payout Ratio", key: "payoutRatio", format: "pct", better: null, maxAbs: 5 },
         ]
     },
     {
         section: "Kesehatan Keuangan", rows: [
             { label: "Revenue", key: "totalRevenue", format: "number", better: "higher" },
-            { label: "Revenue Growth", key: "revenueGrowth", format: "pct", better: "higher", colorFn: true },
-            { label: "Earnings Growth", key: "earningsGrowth", format: "pct", better: "higher", colorFn: true },
-            { label: "Debt / Equity", key: "debtToEquity", format: "dec", better: "lower" },
-            { label: "Current Ratio", key: "currentRatio", format: "dec", better: "higher" },
+            { label: "Revenue Growth", key: "revenueGrowth", format: "pct", better: "higher", colorFn: true, maxAbs: 50 },
+            { label: "Earnings Growth", key: "earningsGrowth", format: "pct", better: "higher", colorFn: true, maxAbs: 100 },
+            { label: "Debt / Equity", key: "debtToEquity", format: "dec", better: "lower", maxAbs: 500 },
+            { label: "Current Ratio", key: "currentRatio", format: "dec", better: "higher", maxAbs: 100 },
         ]
     },
     {
@@ -68,6 +68,17 @@ const METRICS = [
         ]
     },
 ];
+
+/**
+ * Sanitize a metric value — returns null if the value exceeds
+ * plausible financial thresholds (e.g. PBV > 200x, PER > 500x).
+ * This handles garbage data from Yahoo Finance for distressed/micro-cap stocks.
+ */
+function sanitizeVal(val, row) {
+    if (val == null || typeof val !== "number" || isNaN(val)) return null;
+    if (row.maxAbs != null && Math.abs(val) > row.maxAbs) return null;
+    return val;
+}
 
 function formatVal(val, format, currency) {
     if (val == null) return "—";
@@ -89,8 +100,8 @@ function computeScores(stocks) {
             if (!row.better) continue;
             const vals = stocks.map(s => {
                 if (!s) return null;
-                if (row.compute) return row.compute(s);
-                return s[row.key] ?? null;
+                let v = row.compute ? row.compute(s) : (s[row.key] ?? null);
+                return sanitizeVal(v, row);
             });
             const validVals = vals.filter(v => v != null && v > 0);
             if (validVals.length < 2) continue;
@@ -506,8 +517,8 @@ export default function ComparisonPage() {
                             {section.rows.map((row) => {
                                 const vals = stocks.map(s => {
                                     if (!s) return null;
-                                    if (row.compute) return row.compute(s);
-                                    return s[row.key] ?? null;
+                                    let v = row.compute ? row.compute(s) : (s[row.key] ?? null);
+                                    return sanitizeVal(v, row);
                                 });
                                 const numericVals = vals.filter(v => v != null && typeof v === "number" && v > 0);
                                 const maxVal = numericVals.length > 0 ? Math.max(...numericVals.map(Math.abs)) : null;
