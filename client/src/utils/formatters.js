@@ -33,6 +33,10 @@ export function formatNumber(val) {
  */
 export function formatDec(val, decimals = 2) {
     if (val == null || isNaN(val)) return "—";
+    const abs = Math.abs(val);
+    // For extreme ratio values (rare but possible in micro-caps), shorten
+    if (abs >= 1e6) return (val < 0 ? "-" : "") + (abs / 1e6).toLocaleString("id-ID", { maximumFractionDigits: 1 }) + "M";
+    if (abs >= 1e4) return (val < 0 ? "-" : "") + (abs / 1e3).toLocaleString("id-ID", { maximumFractionDigits: 1 }) + "K";
     return val.toLocaleString("id-ID", {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
