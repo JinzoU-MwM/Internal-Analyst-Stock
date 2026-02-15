@@ -7,6 +7,7 @@ import AnalysisForm from "../components/AnalysisForm";
 import UserListModal from "../components/UserListModal";
 import toast from "react-hot-toast";
 import WelcomeHint from "../components/WelcomeHint";
+import FeatureTourModal from "../components/FeatureTourModal";
 
 /** Lightweight markdown → HTML renderer */
 function renderMarkdown(md) {
@@ -51,6 +52,24 @@ export default function Dashboard() {
     // Watchlist state
     const [isInWatchlist, setIsInWatchlist] = useState(false);
     const [watchlistLoading, setWatchlistLoading] = useState(false);
+
+    // Feature tour state
+    const [showTour, setShowTour] = useState(false);
+
+    // Check if tour should be shown on mount
+    useEffect(() => {
+        const tourCompleted = localStorage.getItem("ia_tour_completed");
+        if (!tourCompleted) {
+            // Show tour after a brief delay for better UX
+            const timer = setTimeout(() => setShowTour(true), 800);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
+    const handleCloseTour = () => {
+        setShowTour(false);
+        localStorage.setItem("ia_tour_completed", "true");
+    };
 
     // Check if current ticker is in watchlist
     const checkWatchlistStatus = useCallback(async (symbol) => {
@@ -534,6 +553,9 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Feature Tour Modal */}
+            <FeatureTourModal isOpen={showTour} onClose={handleCloseTour} />
         </div>
     );
 }
