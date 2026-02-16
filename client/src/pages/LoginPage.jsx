@@ -129,6 +129,15 @@ export default function LoginPage() {
                             />
                         </div>
 
+                        <div className="text-right -mt-1 mb-1">
+                            <Link
+                                to="/forgot-password"
+                                className="text-xs text-text-muted hover:text-accent transition-colors"
+                            >
+                                Lupa password?
+                            </Link>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={loading}

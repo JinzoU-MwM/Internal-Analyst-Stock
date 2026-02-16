@@ -13,6 +13,8 @@ import {
     changePassword,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
 } from "../controllers/authController.js";
 import { protect, admin } from "../middleware/auth.js";
 
@@ -27,6 +29,8 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/verify-email/:token", verifyEmail);
 router.post("/resend-verification", resendVerification);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
 router.get("/me", protect, getMe);
 router.get("/users", protect, admin, getAllUsers);
 

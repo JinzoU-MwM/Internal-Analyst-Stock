@@ -3,7 +3,7 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import { SYSTEM_GROUPS } from "../utils/conglomerates.js";
 import { logError } from "../utils/logger.js";
-import { sendVerificationEmail } from "../utils/emailService.js";
+import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/emailService.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_fallback_secret";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -514,5 +514,103 @@ export const resendVerification = async (req, res) => {
     } catch (error) {
         console.error(`[AuthController] resendVerification: ${error.message}`);
         return res.status(500).json({ success: false, error: "Gagal mengirim ulang email" });
+    }
+};
+
+/**
+ * POST /api/auth/forgot-password
+ * Send password reset email
+ * Body: { email }
+ */
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, error: "Email wajib diisi" });
+        }
+
+        const user = await User.findOne({ email });
+
+        // Always return success to prevent email enumeration
+        if (!user) {
+            return res.json({
+                success: true,
+                message: "Jika email terdaftar, link reset password telah dikirim.",
+            });
+        }
+
+        // Generate reset token (1 hour expiry)
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        user.passwordResetToken = resetToken;
+        user.passwordResetExpires = tokenExpiry;
+        await user.save();
+
+        // Send email
+        try {
+            await sendPasswordResetEmail(email, resetToken, user.username);
+        } catch (emailError) {
+            console.error(`[AuthController] Password reset email failed:`, emailError.message);
+        }
+
+        return res.json({
+            success: true,
+            message: "Jika email terdaftar, link reset password telah dikirim.",
+        });
+    } catch (error) {
+        console.error(`[AuthController] forgotPassword: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal memproses permintaan" });
+    }
+};
+
+/**
+ * POST /api/auth/reset-password/:token
+ * Reset password with token
+ * Body: { password }
+ */
+export const resetPassword = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        if (!password || password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: "Password harus minimal 6 karakter",
+            });
+        }
+
+        const user = await User.findOne({
+            passwordResetToken: token,
+            passwordResetExpires: { $gt: new Date() },
+        }).select("+passwordResetToken +passwordResetExpires");
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                error: "Token reset tidak valid atau sudah kedaluwarsa",
+            });
+        }
+
+        // Update password and clear reset fields
+        user.password = password;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
+
+        // Auto-login: return JWT
+        const jwtToken = signToken(user);
+
+        return res.json({
+            success: true,
+            message: "Password berhasil direset",
+            token: jwtToken,
+            user: userResponse(user),
+        });
+    } catch (error) {
+        console.error(`[AuthController] resetPassword: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal mereset password" });
     }
 };

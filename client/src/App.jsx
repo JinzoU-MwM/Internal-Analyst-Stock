@@ -20,6 +20,8 @@ const MSCIScreenerPage = lazy(() => import("./pages/MSCIScreenerPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
 
@@ -70,6 +72,8 @@ export default function App() {
             <Route path="/login" element={<GuestRoute><Page><LoginPage /></Page></GuestRoute>} />
             <Route path="/register" element={<GuestRoute><Page><RegisterPage /></Page></GuestRoute>} />
             <Route path="/verify-email/:token" element={<Page><VerifyEmailPage /></Page>} />
+            <Route path="/forgot-password" element={<GuestRoute><Page><ForgotPasswordPage /></Page></GuestRoute>} />
+            <Route path="/reset-password/:token" element={<Page><ResetPasswordPage /></Page>} />
 
             {/* Protected pages — wrapped in AppLayout sidebar */}
             <Route path="/" element={
