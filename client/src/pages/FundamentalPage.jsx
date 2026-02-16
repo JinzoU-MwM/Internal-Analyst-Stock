@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import KeyStatsGrid from "../components/KeyStatsGrid";
+import FinancialStatementsTable from "../components/FinancialStatementsTable";
 import NotesList from "../components/NotesList";
 import NoteModal from "../components/NoteModal";
 import AddFundamentalNoteForm from "../components/AddFundamentalNoteForm";
@@ -172,6 +173,14 @@ export default function FundamentalPage() {
                     {/* ── Top: Key Stats ────────────────────────────── */}
                     <section>
                         <KeyStatsGrid ticker={activeTicker} />
+                    </section>
+
+                    {/* ── Financial Statements Table ───────────────── */}
+                    <section>
+                        <h3 className="text-lg font-semibold text-text-primary mb-4">
+                            📋 Laporan Keuangan
+                        </h3>
+                        <FinancialStatementsTable ticker={activeTicker} />
                     </section>
 
                     {/* ── Bottom: Internal Notes ────────────────────── */}

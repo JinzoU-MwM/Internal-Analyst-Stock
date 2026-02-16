@@ -1,7 +1,7 @@
 import { Router } from "express";
 import YahooFinance from "yahoo-finance2";
 import { getHistoricalData } from "../services/stockService.js";
-import { getFundamentalStats } from "../controllers/stockController.js";
+import { getFundamentalStats, getFinancialStatements } from "../controllers/stockController.js";
 import { cacheMiddleware } from "../utils/cache.js";
 
 const router = Router();
@@ -44,6 +44,14 @@ router.get("/search", cacheMiddleware(3600), async (req, res) => {
  * ⚠ Must be registered BEFORE /:ticker to avoid being caught by the wildcard.
  */
 router.get("/:ticker/fundamental", cacheMiddleware(900), getFundamentalStats);
+
+/**
+ * GET /api/stocks/:ticker/financials?type=annual|quarterly
+ * Fetch full financial statements (Income, Balance Sheet, Cash Flow)
+ *
+ * Cached for 30 minutes — financial statements update quarterly.
+ */
+router.get("/:ticker/financials", cacheMiddleware(1800), getFinancialStatements);
 
 
 /**
