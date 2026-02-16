@@ -33,7 +33,6 @@ export const getFundamentalStatsData = async (tickerRaw) => {
                 "financialData",
                 "defaultKeyStatistics",
                 "assetProfile",
-                "earningsHistory",
             ],
         }),
         yahooFinance.quote(ticker).catch(() => null),
