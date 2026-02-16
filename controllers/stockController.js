@@ -86,6 +86,14 @@ export const getFundamentalStatsData = async (tickerRaw) => {
         pegRatio = peRatio / (financial.earningsGrowth * 100);
     }
 
+    // ── Compute PBV with currency correction ──
+    // Yahoo sometimes computes PBV as (IDR price / USD bookValue) = wrong
+    // We recalculate: price / (bookValue × fxRate)
+    let pbRatio = keyStats.priceToBook ?? null;
+    if (fxRate !== 1 && currentPrice && keyStats.bookValue && keyStats.bookValue > 0) {
+        pbRatio = currentPrice / (keyStats.bookValue * fxRate);
+    }
+
     return {
         ticker,
 
@@ -102,7 +110,7 @@ export const getFundamentalStatsData = async (tickerRaw) => {
         enterpriseValue: fc(keyStats.enterpriseValue ?? null),
         peRatio,
         forwardPE,
-        pbRatio: keyStats.priceToBook ?? null,
+        pbRatio,
         pegRatio,
 
         // ── Profitability (ratios, no conversion) ───────
