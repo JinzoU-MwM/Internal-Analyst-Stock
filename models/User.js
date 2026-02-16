@@ -50,6 +50,18 @@ const userSchema = new mongoose.Schema(
             trim: true,
             default: "",
         },
+        isEmailVerified: {
+            type: Boolean,
+            default: false,
+        },
+        emailVerificationToken: {
+            type: String,
+            select: false, // Don't return in queries by default
+        },
+        emailVerificationExpires: {
+            type: Date,
+            select: false,
+        },
         watchlist: [
             {
                 symbol: { type: String, required: true },

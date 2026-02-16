@@ -18,6 +18,7 @@ const KonglomeratPage = lazy(() => import("./pages/KonglomeratPage"));
 const MSCIScreenerPage = lazy(() => import("./pages/MSCIScreenerPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
 
@@ -67,6 +68,7 @@ export default function App() {
             {/* Auth pages — only for guests (no sidebar) */}
             <Route path="/login" element={<GuestRoute><Page><LoginPage /></Page></GuestRoute>} />
             <Route path="/register" element={<GuestRoute><Page><RegisterPage /></Page></GuestRoute>} />
+            <Route path="/verify-email/:token" element={<Page><VerifyEmailPage /></Page>} />
 
             {/* Protected pages — wrapped in AppLayout sidebar */}
             <Route path="/" element={

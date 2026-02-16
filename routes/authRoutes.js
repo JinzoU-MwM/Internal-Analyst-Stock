@@ -11,6 +11,8 @@ import {
     updateWatchlistItem,
     updateProfile,
     changePassword,
+    verifyEmail,
+    resendVerification,
 } from "../controllers/authController.js";
 import { protect, admin } from "../middleware/auth.js";
 
@@ -23,6 +25,8 @@ const router = Router();
  */
 router.post("/register", register);
 router.post("/login", login);
+router.get("/verify-email/:token", verifyEmail);
+router.post("/resend-verification", resendVerification);
 router.get("/me", protect, getMe);
 router.get("/users", protect, admin, getAllUsers);
 

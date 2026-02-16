@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/User.js";
 import { SYSTEM_GROUPS } from "../utils/conglomerates.js";
 import { logError } from "../utils/logger.js";
+import { sendVerificationEmail } from "../utils/emailService.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_fallback_secret";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
@@ -51,13 +53,30 @@ export const register = async (req, res) => {
             });
         }
 
-        const user = await User.create({ username, email, password });
-        const token = signToken(user);
+        // Generate email verification token
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        const user = await User.create({
+            username,
+            email,
+            password,
+            emailVerificationToken: verificationToken,
+            emailVerificationExpires: tokenExpiry,
+        });
+
+        // Send verification email
+        try {
+            await sendVerificationEmail(email, verificationToken, username);
+        } catch (emailError) {
+            console.error(`[AuthController] Email send failed:`, emailError.message);
+            // Continue registration even if email fails - user can resend
+        }
 
         return res.status(201).json({
             success: true,
-            token,
-            user: userResponse(user),
+            message: "Pendaftaran berhasil! Silakan cek email Anda untuk verifikasi.",
+            email: user.email,
         });
     } catch (error) {
         if (error.name === "ValidationError") {
@@ -109,6 +128,16 @@ export const login = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 error: "Email atau password salah",
+            });
+        }
+
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            return res.status(403).json({
+                success: false,
+                error: "Email belum diverifikasi",
+                code: "EMAIL_NOT_VERIFIED",
+                email: user.email,
             });
         }
 
@@ -393,5 +422,97 @@ export const changePassword = async (req, res) => {
     } catch (error) {
         console.error(`[AuthController] changePassword: ${error.message}`);
         return res.status(500).json({ success: false, error: "Gagal mengubah password" });
+    }
+};
+
+/**
+ * GET /api/auth/verify-email/:token
+ * Verify email with token and auto-login
+ */
+export const verifyEmail = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const user = await User.findOne({
+            emailVerificationToken: token,
+            emailVerificationExpires: { $gt: Date.now() },
+        }).select("+emailVerificationToken +emailVerificationExpires");
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                error: "Token verifikasi tidak valid atau sudah kedaluwarsa",
+            });
+        }
+
+        // Mark email as verified and clear token
+        user.isEmailVerified = true;
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpires = undefined;
+        await user.save();
+
+        // Auto-login after verification
+        const authToken = signToken(user);
+
+        return res.json({
+            success: true,
+            message: "Email berhasil diverifikasi!",
+            token: authToken,
+            user: userResponse(user),
+        });
+    } catch (error) {
+        console.error(`[AuthController] verifyEmail: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal verifikasi email" });
+    }
+};
+
+/**
+ * POST /api/auth/resend-verification
+ * Resend verification email
+ * Body: { email }
+ */
+export const resendVerification = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, error: "Email wajib diisi" });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ success: false, error: "Email tidak terdaftar" });
+        }
+
+        if (user.isEmailVerified) {
+            return res.status(400).json({ success: false, error: "Email sudah diverifikasi" });
+        }
+
+        // Generate new token
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        user.emailVerificationToken = verificationToken;
+        user.emailVerificationExpires = tokenExpiry;
+        await user.save();
+
+        // Send email
+        try {
+            await sendVerificationEmail(email, verificationToken, user.username);
+            return res.json({
+                success: true,
+                message: "Email verifikasi telah dikirim ulang",
+            });
+        } catch (emailError) {
+            console.error(`[AuthController] Resend email failed:`, emailError.message);
+            return res.status(500).json({
+                success: false,
+                error: "Gagal mengirim email. Silakan coba lagi.",
+            });
+        }
+    } catch (error) {
+        console.error(`[AuthController] resendVerification: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal mengirim ulang email" });
     }
 };

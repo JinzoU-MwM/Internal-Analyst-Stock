@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001/api";
 
 export default function LoginPage() {
     const { login, loading } = useAuth();
@@ -9,10 +12,14 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [showResend, setShowResend] = useState(false);
+    const [unverifiedEmail, setUnverifiedEmail] = useState("");
+    const [resendLoading, setResendLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
+        setShowResend(false);
 
         if (!email.trim() || !password.trim()) {
             setError("Email dan password wajib diisi.");
@@ -24,6 +31,35 @@ export default function LoginPage() {
             navigate("/");
         } else {
             setError(result.error);
+
+            // If email not verified, show resend button
+            if (result.code === "EMAIL_NOT_VERIFIED") {
+                setShowResend(true);
+                setUnverifiedEmail(result.email || email);
+            }
+        }
+    };
+
+    const handleResend = async () => {
+        setResendLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: unverifiedEmail }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success("Email verifikasi telah dikirim ulang!");
+                setShowResend(false);
+            } else {
+                toast.error(data.error || "Gagal mengirim ulang email");
+            }
+        } catch (error) {
+            toast.error("Terjadi kesalahan");
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -48,6 +84,21 @@ export default function LoginPage() {
                     {error && (
                         <div className="bg-bear/10 border border-bear/30 text-bear rounded-lg px-4 py-2.5 text-sm mb-4">
                             {error}
+                        </div>
+                    )}
+
+                    {showResend && (
+                        <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-text-muted mb-3">
+                                Belum menerima email verifikasi?
+                            </p>
+                            <button
+                                onClick={handleResend}
+                                disabled={resendLoading}
+                                className="w-full bg-accent hover:bg-accent/90 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                {resendLoading ? "Mengirim..." : "📤 Kirim Ulang Email Verifikasi"}
+                            </button>
                         </div>
                     )}
 

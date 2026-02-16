@@ -48,7 +48,12 @@ export function AuthProvider({ children }) {
                 return { success: true };
             }
 
-            return { success: false, error: data.error || "Login gagal" };
+            return {
+                success: false,
+                error: data.error || "Login gagal",
+                code: data.code,
+                email: data.email
+            };
         } catch (err) {
             return { success: false, error: err.message };
         } finally {
@@ -70,11 +75,12 @@ export function AuthProvider({ children }) {
             const data = await res.json();
 
             if (data.success) {
-                localStorage.setItem("ia_token", data.token);
-                localStorage.setItem("ia_user", JSON.stringify(data.user));
-                setToken(data.token);
-                setUser(data.user);
-                return { success: true };
+                // Don't auto-login - user needs to verify email first
+                return {
+                    success: true,
+                    message: data.message,
+                    email: data.email
+                };
             }
 
             return {

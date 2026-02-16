@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001/api";
 
 export default function RegisterPage() {
     const { register, loading } = useAuth();
-    const navigate = useNavigate();
 
     const [form, setForm] = useState({ username: "", email: "", password: "" });
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState("");
+    const [resendLoading, setResendLoading] = useState(false);
 
     const update = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
@@ -22,11 +27,81 @@ export default function RegisterPage() {
 
         const result = await register(form.username, form.email, form.password);
         if (result.success) {
-            navigate("/");
+            setSuccess(true);
+            setRegisteredEmail(result.email);
+            toast.success("Pendaftaran berhasil! Cek email Anda.");
         } else {
             setError(result.error);
         }
     };
+
+    const handleResend = async () => {
+        setResendLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: registeredEmail }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success("Email verifikasi telah dikirim ulang!");
+            } else {
+                toast.error(data.error || "Gagal mengirim ulang email");
+            }
+        } catch (error) {
+            toast.error("Terjadi kesalahan");
+        } finally {
+            setResendLoading(false);
+        }
+    };
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+                <div className="w-full max-w-md">
+                    <div className="flex flex-col items-center mb-8">
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 text-4xl">
+                            ✓
+                        </div>
+                        <h1 className="text-2xl font-bold text-text-primary">
+                            Cek Email Anda! 📧
+                        </h1>
+                        <p className="text-sm text-text-muted mt-2 text-center max-w-sm">
+                            Kami telah mengirim link verifikasi ke <strong>{registeredEmail}</strong>
+                        </p>
+                    </div>
+
+                    <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-xl space-y-4">
+                        <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-sm text-text-muted leading-relaxed">
+                            <p className="mb-2">💡 <strong className="text-text-primary">Langkah selanjutnya:</strong></p>
+                            <ol className="list-decimal list-inside space-y-1 ml-2">
+                                <li>Buka inbox email Anda</li>
+                                <li>Klik link verifikasi dalam email</li>
+                                <li>Anda akan otomatis login</li>
+                            </ol>
+                        </div>
+
+                        <button
+                            onClick={handleResend}
+                            disabled={resendLoading}
+                            className="w-full bg-surface-elevated hover:bg-border text-text-primary font-medium py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {resendLoading ? "Mengirim..." : "📤 Kirim Ulang Email"}
+                        </button>
+
+                        <Link
+                            to="/login"
+                            className="block w-full text-center bg-accent hover:bg-accent/90 text-white font-medium py-3 rounded-lg transition-colors"
+                        >
+                            Ke Halaman Login
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-surface flex items-center justify-center p-4">
