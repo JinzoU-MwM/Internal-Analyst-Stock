@@ -44,26 +44,31 @@ export const getFundamentalStatsData = async (tickerRaw) => {
     const profile = result.assetProfile ?? {};
     const quote = quoteData ?? {};
 
-    // Check currency and convert if USD
-    let currency = financial.financialCurrency || summary.currency || "IDR";
-    let rate = 1;
+    // ── Currency handling ──────────────────────────────────────
+    // listingCurrency = stock's trading currency (IDR for .JK)
+    // financialCurrency = reporting currency (can be USD for ADRO, etc.)
+    // Market data (price, market cap, 52W range, targets) → listing currency
+    // Financial data (revenue, debt, cash) → financial reporting currency
+    const listingCurrency = summary.currency || quote.currency || "IDR";
+    const financialCurrency = financial.financialCurrency || listingCurrency;
+    let fxRate = 1;
 
-    if (currency === "USD") {
+    if (financialCurrency === "USD" && listingCurrency === "IDR") {
         try {
             const fxQuote = await yahooFinance.quote("USDIDR=X");
-            if (fxQuote && fxQuote.regularMarketPrice) {
-                rate = fxQuote.regularMarketPrice;
-                currency = "IDR"; // Converted
+            if (fxQuote?.regularMarketPrice) {
+                fxRate = fxQuote.regularMarketPrice;
             }
         } catch (err) {
             console.error("[StockController] Failed to fetch USDIDR rate:", err.message);
         }
     }
 
-    const convert = (val) => (val && rate !== 1 ? val * rate : val);
+    // fc = convert financial-reporting-currency fields to IDR
+    const fc = (val) => (val != null && fxRate !== 1 ? val * fxRate : val);
 
     // ── Compute PE with fallback chain ──
-    const currentPrice = convert(financial.currentPrice ?? quote.regularMarketPrice ?? null);
+    const currentPrice = financial.currentPrice ?? quote.regularMarketPrice ?? null;
     const eps = quote.epsTrailingTwelveMonths ?? (keyStats.trailingEps ?? null);
     let peRatio = summary.trailingPE ?? quote.trailingPE ?? null;
     if (peRatio == null && currentPrice && eps && eps !== 0) {
@@ -85,55 +90,55 @@ export const getFundamentalStatsData = async (tickerRaw) => {
         ticker,
 
         // ── Company Profile ─────────────────────────────
-        currency,
+        currency: "IDR",
         sector: profile.sector ?? null,
         industry: profile.industry ?? null,
         longBusinessSummary: profile.longBusinessSummary ?? null,
         website: profile.website ?? null,
         fullTimeEmployees: profile.fullTimeEmployees ?? null,
 
-        // ── Valuation ───────────────────────────────────
-        marketCap: convert(summary.marketCap ?? null),
-        enterpriseValue: convert(keyStats.enterpriseValue ?? null),
+        // ── Valuation (market data → listing currency, no conversion) ──
+        marketCap: summary.marketCap ?? null,
+        enterpriseValue: fc(keyStats.enterpriseValue ?? null),
         peRatio,
         forwardPE,
         pbRatio: keyStats.priceToBook ?? null,
         pegRatio,
 
-        // ── Profitability ───────────────────────────────
+        // ── Profitability (ratios, no conversion) ───────
         roe: financial.returnOnEquity ?? null,
         roa: financial.returnOnAssets ?? null,
         profitMargin: keyStats.profitMargins ?? null,
         operatingMargin: financial.operatingMargins ?? null,
         grossMargin: financial.grossMargins ?? null,
 
-        // ── Dividend ────────────────────────────────────
+        // ── Dividend (listing currency) ─────────────────
         dividendYield: summary.dividendYield ?? null,
-        dividendRate: convert(summary.dividendRate ?? null),
+        dividendRate: summary.dividendRate ?? null,
         payoutRatio: summary.payoutRatio ?? null,
 
-        // ── Financial Health ─────────────────────────────
-        totalRevenue: convert(financial.totalRevenue ?? null),
+        // ── Financial Health (reporting currency → convert) ──
+        totalRevenue: fc(financial.totalRevenue ?? null),
         revenueGrowth: financial.revenueGrowth ?? null,
         earningsGrowth: financial.earningsGrowth ?? null,
-        totalDebt: convert(financial.totalDebt ?? null),
-        totalCash: convert(financial.totalCash ?? null),
+        totalDebt: fc(financial.totalDebt ?? null),
+        totalCash: fc(financial.totalCash ?? null),
         debtToEquity: financial.debtToEquity ?? null,
         currentRatio: financial.currentRatio ?? null,
 
-        // ── Price Targets ───────────────────────────────
-        currentPrice: convert(financial.currentPrice ?? null),
-        targetHighPrice: convert(financial.targetHighPrice ?? null),
-        targetLowPrice: convert(financial.targetLowPrice ?? null),
-        targetMeanPrice: convert(financial.targetMeanPrice ?? null),
+        // ── Price Targets (listing currency, no conversion) ──
+        currentPrice,
+        targetHighPrice: financial.targetHighPrice ?? null,
+        targetLowPrice: financial.targetLowPrice ?? null,
+        targetMeanPrice: financial.targetMeanPrice ?? null,
         recommendation: financial.recommendationKey ?? null,
         numberOfAnalysts: financial.numberOfAnalystOpinions ?? null,
 
-        // ── Trading Info ────────────────────────────────
-        fiftyTwoWeekHigh: convert(summary.fiftyTwoWeekHigh ?? null),
-        fiftyTwoWeekLow: convert(summary.fiftyTwoWeekLow ?? null),
-        fiftyDayAverage: convert(summary.fiftyDayAverage ?? null),
-        twoHundredDayAverage: convert(summary.twoHundredDayAverage ?? null),
+        // ── Trading Info (listing currency, no conversion) ──
+        fiftyTwoWeekHigh: summary.fiftyTwoWeekHigh ?? null,
+        fiftyTwoWeekLow: summary.fiftyTwoWeekLow ?? null,
+        fiftyDayAverage: summary.fiftyDayAverage ?? null,
+        twoHundredDayAverage: summary.twoHundredDayAverage ?? null,
         beta: summary.beta ?? null,
         volume: summary.volume ?? null,
         averageVolume: summary.averageVolume ?? null,
