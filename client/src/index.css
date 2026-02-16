@@ -106,6 +106,34 @@
     @apply bg-surface text-text-primary antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+
+  /* ── Custom Scrollbar (thin, dark, unobtrusive) ────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2d3e transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #2a2d3e;
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a3d4e;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @keyframes scale-in {
