@@ -445,10 +445,11 @@ export const verifyEmail = async (req, res) => {
             });
         }
 
-        // Mark email as verified and clear token
+        // Mark email as verified, clear token, and remove auto-delete timer
         user.isEmailVerified = true;
         user.emailVerificationToken = undefined;
         user.emailVerificationExpires = undefined;
+        user.accountExpiresAt = undefined;
         await user.save();
 
         // Auto-login after verification

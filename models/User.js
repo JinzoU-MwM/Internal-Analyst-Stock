@@ -70,6 +70,13 @@ const userSchema = new mongoose.Schema(
             type: Date,
             select: false,
         },
+        // Auto-delete unverified accounts after 24 hours
+        // MongoDB TTL index removes docs when this date passes
+        // Cleared (set to null) upon email verification
+        accountExpiresAt: {
+            type: Date,
+            default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
         watchlist: [
             {
                 symbol: { type: String, required: true },
@@ -96,6 +103,9 @@ userSchema.pre("save", async function () {
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
+
+// ── TTL index: auto-delete unverified accounts ─────────────
+userSchema.index({ accountExpiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const User = mongoose.model("User", userSchema);
 
