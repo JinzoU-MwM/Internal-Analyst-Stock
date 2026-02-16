@@ -1,28 +1,23 @@
 import nodemailer from "nodemailer";
 
-// ── SMTP Configuration ────────────────────────────────────────────
-const SMTP_CONFIG = {
-    host: process.env.SMTP_HOST || "smtp.hostinger.com",
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: true, // true for 465 (SSL), false for 587 (TLS)
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-};
-
-const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_USER;
-const FROM_NAME = process.env.FROM_NAME || "Internal Analyst Stock";
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
-
-// ── Create Nodemailer Transporter ─────────────────────────────────
-let transporter;
-
-try {
-    transporter = nodemailer.createTransporter(SMTP_CONFIG);
-} catch (error) {
-    console.error("[EmailService] Failed to create transporter:", error.message);
+// ── Lazy Transporter Factory ───────────────────────────────────────
+// Create transporter on demand so env vars are always available
+// (fixes Vercel serverless cold-start timing issues)
+function getTransporter() {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.hostinger.com",
+        port: parseInt(process.env.SMTP_PORT) || 465,
+        secure: true,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
 }
+
+function getFromEmail() { return process.env.FROM_EMAIL || process.env.SMTP_USER; }
+function getFromName() { return process.env.FROM_NAME || "Internal Analyst Stock"; }
+function getClientUrl() { return process.env.CLIENT_URL || "http://localhost:5173"; }
 
 // ── Send Verification Email ───────────────────────────────────────
 /**
@@ -32,14 +27,12 @@ try {
  * @param {string} username - User's username for personalization
  */
 export async function sendVerificationEmail(email, token, username = "User") {
-    if (!transporter) {
-        throw new Error("Email service not configured");
-    }
+    const transporter = getTransporter();
 
-    const verificationUrl = `${CLIENT_URL}/verify-email/${token}`;
+    const verificationUrl = `${getClientUrl()}/verify-email/${token}`;
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+        from: `"${getFromName()}" <${getFromEmail()}>`,
         to: email,
         subject: "Verifikasi Email Anda - Internal Analyst Stock",
         html: `
@@ -154,14 +147,12 @@ Internal Analyst Stock
  * @param {string} username - User's username for personalization
  */
 export async function sendPasswordResetEmail(email, token, username = "User") {
-    if (!transporter) {
-        throw new Error("Email service not configured");
-    }
+    const transporter = getTransporter();
 
-    const resetUrl = `${CLIENT_URL}/reset-password/${token}`;
+    const resetUrl = `${getClientUrl()}/reset-password/${token}`;
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+        from: `"${getFromName()}" <${getFromEmail()}>`,
         to: email,
         subject: "Reset Password — Internal Analyst Stock",
         html: `
@@ -272,11 +263,8 @@ Internal Analyst Stock
  * Verify SMTP connection is working
  */
 export async function verifyEmailConfig() {
-    if (!transporter) {
-        return { success: false, error: "Transporter not configured" };
-    }
-
     try {
+        const transporter = getTransporter();
         await transporter.verify();
         console.log("[EmailService] SMTP connection verified successfully");
         return { success: true };
