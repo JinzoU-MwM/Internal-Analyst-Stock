@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import { SYSTEM_GROUPS } from "../utils/conglomerates.js";
 import { logError } from "../utils/logger.js";
@@ -613,5 +614,91 @@ export const resetPassword = async (req, res) => {
     } catch (error) {
         console.error(`[AuthController] resetPassword: ${error.message}`);
         return res.status(500).json({ success: false, error: "Gagal mereset password" });
+    }
+};
+
+/**
+ * POST /api/auth/google
+ * Authenticate with Google OAuth. Creates account if new user.
+ * Body: { credential } – the Google ID token from frontend
+ */
+export const googleAuth = async (req, res) => {
+    try {
+        const { credential } = req.body;
+
+        if (!credential) {
+            return res.status(400).json({ success: false, error: "Google credential diperlukan" });
+        }
+
+        // Verify the Google ID token
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+        let ticket;
+        try {
+            ticket = await client.verifyIdToken({
+                idToken: credential,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+        } catch (err) {
+            console.error("[AuthController] Google token verification failed:", err.message);
+            return res.status(401).json({ success: false, error: "Token Google tidak valid" });
+        }
+
+        const payload = ticket.getPayload();
+        const { email, name, picture, sub: googleId } = payload;
+
+        if (!email) {
+            return res.status(400).json({ success: false, error: "Email tidak tersedia dari Google" });
+        }
+
+        // Check if user already exists
+        let user = await User.findOne({ email });
+
+        if (user) {
+            // Existing user — update Google info if needed
+            if (!user.avatarUrl && picture) user.avatarUrl = picture;
+            if (!user.isEmailVerified) {
+                user.isEmailVerified = true;
+                user.accountExpiresAt = undefined;
+            }
+            await user.save();
+        } else {
+            // New user — create account
+            // Generate unique username from Google name
+            const baseUsername = (name || email.split("@")[0])
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "")
+                .slice(0, 20);
+
+            let username = baseUsername;
+            let suffix = 1;
+            while (await User.findOne({ username })) {
+                username = `${baseUsername}${suffix}`;
+                suffix++;
+            }
+
+            // Generate a random password (user can change later or always use Google)
+            const randomPassword = crypto.randomBytes(32).toString("hex");
+
+            user = await User.create({
+                username,
+                email,
+                password: randomPassword,
+                displayName: name || username,
+                avatarUrl: picture || "",
+                isEmailVerified: true, // Google already verified email
+                accountExpiresAt: undefined, // No auto-delete
+            });
+        }
+
+        const token = signToken(user);
+
+        return res.json({
+            success: true,
+            token,
+            user: userResponse(user),
+        });
+    } catch (error) {
+        console.error(`[AuthController] googleAuth: ${error.message}`);
+        return res.status(500).json({ success: false, error: "Gagal autentikasi dengan Google" });
     }
 };

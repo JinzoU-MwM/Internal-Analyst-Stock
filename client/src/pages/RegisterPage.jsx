@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 export default function RegisterPage() {
     const { register, loading } = useAuth();
@@ -183,6 +184,16 @@ export default function RegisterPage() {
                             )}
                         </button>
                     </form>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 my-5">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-text-muted">atau</span>
+                        <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Google Sign-Up */}
+                    <GoogleSignInButton text="signup_with" />
 
                     <div className="mt-5 pt-4 border-t border-border text-center">
                         <p className="text-sm text-text-muted">
