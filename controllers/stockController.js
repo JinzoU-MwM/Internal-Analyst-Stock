@@ -80,11 +80,10 @@ export const getFundamentalStatsData = async (tickerRaw) => {
         forwardPE = currentPrice / keyStats.forwardEps;
     }
 
-    // ── Compute PEG with fallback chain ──
-    let pegRatio = keyStats.pegRatio ?? quote.trailingPegRatio ?? null;
-    if (pegRatio == null && peRatio && financial.earningsGrowth && financial.earningsGrowth !== 0) {
-        pegRatio = peRatio / (financial.earningsGrowth * 100);
-    }
+    // ── PEG — use Yahoo's native value only ──
+    // (Our fallback using TTM earningsGrowth was unreliable for stocks
+    // with volatile one-year earnings like ADRO)
+    const pegRatio = keyStats.pegRatio ?? quote.trailingPegRatio ?? null;
 
     // ── Compute PBV with currency correction ──
     // Yahoo sometimes computes PBV as (IDR price / USD bookValue) = wrong
