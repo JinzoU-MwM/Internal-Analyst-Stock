@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001/api";
-
 export default function VerifyEmailPage() {
     const { token } = useParams();
     const navigate = useNavigate();
@@ -16,7 +14,7 @@ export default function VerifyEmailPage() {
 
     const verifyEmail = async () => {
         try {
-            const res = await fetch(`${API_BASE}/auth/verify-email/${token}`);
+            const res = await fetch(`/api/auth/verify-email/${token}`);
             const data = await res.json();
 
             if (data.success) {

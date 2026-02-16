@@ -3,8 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001/api";
-
 export default function LoginPage() {
     const { login, loading } = useAuth();
     const navigate = useNavigate();
@@ -43,7 +41,7 @@ export default function LoginPage() {
     const handleResend = async () => {
         setResendLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+            const res = await fetch(`/api/auth/resend-verification`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: unverifiedEmail }),
