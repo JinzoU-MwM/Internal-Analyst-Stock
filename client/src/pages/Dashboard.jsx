@@ -691,9 +691,6 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
-
-            {/* Feature Tour Modal */}
-            <FeatureTourModal isOpen={showTour} onClose={handleCloseTour} />
         </div>
     );
 }
