@@ -3,16 +3,14 @@
  * Documentation: https://pakasir.com/p/docs
  */
 
-const PAKASIR_BASE_URL = process.env.PAKASIR_SANDBOX === "true"
-    ? "https://app.pakasir.com/api"
-    : "https://app.pakasir.com/api";
-
+const PAKASIR_BASE_URL = "https://app.pakasir.com/api";
 const API_KEY = process.env.PAKASIR_API_KEY;
+const PROJECT_SLUG = process.env.PAKASIR_SLUG;
 
 /**
  * Create a new transaction in Pak Kasir
  * @param {Object} params
- * @param {string} params.orderId - Unique order ID (external_id)
+ * @param {string} params.orderId - Unique order ID
  * @param {number} params.amount - Payment amount in IDR
  * @param {string} params.customerEmail - Customer email
  * @param {string} params.customerName - Customer name
@@ -29,31 +27,34 @@ export async function createTransaction({
     description = "Premium Subscription",
 }) {
     try {
+        const payload = {
+            api_key: API_KEY,
+            project: PROJECT_SLUG,
+            order_id: orderId,
+            amount: amount,
+            customer_email: customerEmail,
+            customer_name: customerName,
+            description: description,
+        };
+
+        console.log("[Pakasir] Creating transaction:", { orderId, amount, method, project: PROJECT_SLUG });
+
         const response = await fetch(`${PAKASIR_BASE_URL}/transactioncreate/${method}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                api_key: API_KEY,
-                external_id: orderId,
-                amount: amount,
-                customer_email: customerEmail,
-                customer_name: customerName,
-                description: description,
-                // Optional: callback URL for webhook
-                // callback_url: process.env.PAKASIR_WEBHOOK_URL,
-            }),
+            body: JSON.stringify(payload),
         });
 
         const data = await response.json();
 
-        if (!response.ok) {
+        if (!response.ok || data.message) {
             console.error("[Pakasir] Create transaction error:", data);
             throw new Error(data.message || "Failed to create transaction");
         }
 
-        console.log("[Pakasir] Transaction created:", orderId);
+        console.log("[Pakasir] Transaction created:", orderId, data);
         return data;
     } catch (error) {
         console.error("[Pakasir] createTransaction error:", error.message);
@@ -63,20 +64,18 @@ export async function createTransaction({
 
 /**
  * Get transaction details from Pak Kasir
- * @param {string} orderId - Order ID (external_id)
+ * @param {string} orderId - Order ID
  * @returns {Promise<Object>} Transaction details
  */
 export async function getTransactionDetail(orderId) {
     try {
-        const response = await fetch(
-            `${PAKASIR_BASE_URL}/transactiondetail?api_key=${API_KEY}&external_id=${orderId}`,
-            {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }
-        );
+        const url = `${PAKASIR_BASE_URL}/transactiondetail?project=${PROJECT_SLUG}&order_id=${orderId}&api_key=${API_KEY}`;
+        const response = await fetch(url, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
 
         const data = await response.json();
 
@@ -94,7 +93,7 @@ export async function getTransactionDetail(orderId) {
 
 /**
  * Cancel a transaction in Pak Kasir
- * @param {string} orderId - Order ID (external_id)
+ * @param {string} orderId - Order ID
  * @returns {Promise<Object>} Cancellation result
  */
 export async function cancelTransaction(orderId) {
@@ -106,7 +105,8 @@ export async function cancelTransaction(orderId) {
             },
             body: JSON.stringify({
                 api_key: API_KEY,
-                external_id: orderId,
+                project: PROJECT_SLUG,
+                order_id: orderId,
             }),
         });
 
@@ -128,7 +128,7 @@ export async function cancelTransaction(orderId) {
 /**
  * Simulate payment (sandbox mode only)
  * Use this for testing in sandbox environment
- * @param {string} orderId - Order ID (external_id)
+ * @param {string} orderId - Order ID
  * @param {number} amount - Payment amount
  * @returns {Promise<Object>} Simulation result
  */
@@ -145,7 +145,8 @@ export async function simulatePayment(orderId, amount) {
             },
             body: JSON.stringify({
                 api_key: API_KEY,
-                external_id: orderId,
+                project: PROJECT_SLUG,
+                order_id: orderId,
                 amount: amount,
             }),
         });
