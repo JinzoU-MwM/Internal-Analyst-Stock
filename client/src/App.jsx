@@ -24,6 +24,7 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
+const TechnicalAnalysisPage = lazy(() => import("./pages/TechnicalAnalysisPage"));
 
 /**
  * ProtectedRoute — redirects to /login if user is not authenticated.
@@ -79,6 +80,11 @@ export default function App() {
             <Route path="/" element={
               <ProtectedRoute>
                 <AppLayout><Page><Dashboard /></Page></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/technical-analysis" element={
+              <ProtectedRoute>
+                <AppLayout><Page><TechnicalAnalysisPage /></Page></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/fundamental" element={

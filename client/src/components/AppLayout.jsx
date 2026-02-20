@@ -130,6 +130,10 @@ export default function AppLayout({ children }) {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 17h18" />
                 </svg>
             ),
+            subItems: [
+                { label: "Price Chart", to: "/" },
+                { label: "Technical Analysis", to: "/technical-analysis" },
+            ],
         },
         {
             label: "Fundamental",
