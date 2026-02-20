@@ -123,17 +123,13 @@ export default function AppLayout({ children }) {
     const navItems = [
         {
             label: "Chart",
-            to: "/",
+            to: "/dashboard",
             icon: (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 13l4-4 4 4 4-8 4 4" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 17h18" />
                 </svg>
             ),
-            subItems: [
-                { label: "Price Chart", to: "/" },
-                { label: "Technical Analysis", to: "/technical-analysis" },
-            ],
         },
         {
             label: "Fundamental",
@@ -219,7 +215,7 @@ export default function AppLayout({ children }) {
     ];
 
     const isActive = (to) => {
-        if (to === "/") return pathname === "/";
+        if (to === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
         return pathname.startsWith(to);
     };
 

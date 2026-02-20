@@ -1,48 +1,70 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import DOMPurify from "dompurify";
 import StockChart from "../components/StockChart";
+import TAChart from "../components/TAChart";
 import AnalysisHistory from "../components/AnalysisHistory";
 import AnalysisForm from "../components/AnalysisForm";
-import UserListModal from "../components/UserListModal";
 import toast from "react-hot-toast";
 import WelcomeHint from "../components/WelcomeHint";
-import FeatureTourModal from "../components/FeatureTourModal";
 
-/** Lightweight markdown → HTML renderer */
+/** Lightweight markdown → HTML renderer with sanitization */
 function renderMarkdown(md) {
     if (!md) return "";
-    return md
-        // Headings
+    const rawHtml = md
         .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold text-text-primary mt-5 mb-2">$1</h3>')
         .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-text-primary mt-6 mb-3 pb-2 border-b border-border">$1</h2>')
-        // Bold
         .replace(/\*\*(.+?)\*\*/g, '<strong class="text-text-primary font-semibold">$1</strong>')
-        // Unordered lists
         .replace(/^[*-] (.+)$/gm, '<li class="ml-4 mb-1 list-disc list-inside">$1</li>')
-        // Table rows
         .replace(/^\|(.+)\|$/gm, (_, row) => {
             const cells = row.split("|").map((c) => c.trim());
             return `<tr>${cells.map((c) => `<td class="px-3 py-1.5 border border-border">${c}</td>`).join("")}</tr>`;
         })
-        // Wrap consecutive <tr> in <table>
         .replace(/((?:<tr>.*<\/tr>\n?)+)/g, '<table class="w-full border-collapse text-xs my-3">$1</table>')
-        // Remove table separator rows (---|---|---)
         .replace(/<tr><td[^>]*>[\s-:]+<\/td>(<td[^>]*>[\s-:]+<\/td>)*<\/tr>/g, "")
-        // Paragraphs from remaining lines
         .replace(/^(?!<[htl])((?!<).+)$/gm, '<p class="mb-2">$1</p>')
-        // Line breaks
         .replace(/\n/g, "");
+    return DOMPurify.sanitize(rawHtml);
 }
+
+const INDICATORS = {
+    trend: { label: "Trend", items: [
+        { key: "sma20", label: "SMA 20", color: "#f59e0b" },
+        { key: "sma50", label: "SMA 50", color: "#8b5cf6" },
+        { key: "sma200", label: "SMA 200", color: "#06b6d4" },
+        { key: "ema", label: "EMA 12/26", color: "#ec4899" },
+    ]},
+    volatility: { label: "Volatilitas", items: [{ key: "bb", label: "Bollinger", color: "#3b82f6" }] },
+    momentum: { label: "Momentum", items: [
+        { key: "rsi", label: "RSI", color: "#a855f7" },
+        { key: "macd", label: "MACD", color: "#3b82f6" },
+    ]},
+};
+
+const DEFAULT_INDICATORS = { sma20: true, sma50: true, sma200: false, ema: false, bb: true, rsi: true, macd: true };
 
 export default function Dashboard() {
     const { isAdmin } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Core state
     const [ticker, setTicker] = useState("");
     const [activeTicker, setActiveTicker] = useState("");
     const [chartData, setChartData] = useState([]);
-    const [analyses, setAnalyses] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+
+    // Mode toggle: "normal" or "ta"
+    const [chartMode, setChartMode] = useState("normal");
+
+    // TA-specific state
+    const [taData, setTaData] = useState(null);
+    const [taIndicators, setTaIndicators] = useState({});
+    const [taAnalysis, setTaAnalysis] = useState(null);
+    const [visibleIndicators, setVisibleIndicators] = useState(DEFAULT_INDICATORS);
+
+    // Analysis state (normal mode)
+    const [analyses, setAnalyses] = useState([]);
 
     // AI Insight state
     const [aiInsight, setAiInsight] = useState("");
@@ -52,24 +74,6 @@ export default function Dashboard() {
     // Watchlist state
     const [isInWatchlist, setIsInWatchlist] = useState(false);
     const [watchlistLoading, setWatchlistLoading] = useState(false);
-
-    // Feature tour state
-    const [showTour, setShowTour] = useState(false);
-
-    // Check if tour should be shown on mount
-    useEffect(() => {
-        const tourCompleted = localStorage.getItem("ia_tour_completed");
-        if (!tourCompleted) {
-            // Show tour after a brief delay for better UX
-            const timer = setTimeout(() => setShowTour(true), 800);
-            return () => clearTimeout(timer);
-        }
-    }, []);
-
-    const handleCloseTour = () => {
-        setShowTour(false);
-        localStorage.setItem("ia_tour_completed", "true");
-    };
 
     // Check if current ticker is in watchlist
     const checkWatchlistStatus = useCallback(async (symbol) => {
@@ -135,8 +139,6 @@ export default function Dashboard() {
         }
     }, []);
 
-    const [searchParams, setSearchParams] = useSearchParams();
-
     // Refactored fetch logic
     const fetchStockData = useCallback(async (symbol) => {
         if (!symbol) return;
@@ -147,10 +149,11 @@ export default function Dashboard() {
         }
 
         setLoading(true);
-        setError("");
         setChartData([]);
         setAnalyses([]);
         setAiInsight("");
+        setTaData(null);
+        setTaAnalysis(null);
         setActiveTicker(symbol);
         setTicker(symbol.split(".")[0]); // Display without .JK in input
 
@@ -186,6 +189,32 @@ export default function Dashboard() {
             setLoading(false);
         }
     }, [checkWatchlistStatus]);
+
+    // Fetch TA data when switching to TA mode
+    const fetchTAData = useCallback(async () => {
+        if (!activeTicker || taData) return;
+        try {
+            const res = await fetch(`/api/ta?ticker=${encodeURIComponent(activeTicker)}`);
+            const data = await res.json();
+            if (data.success) {
+                setTaData(data.latest);
+                setTaIndicators(data.indicators);
+                setTaAnalysis(data.analysis);
+            } else {
+                toast.error(data.error || "Gagal memuat data teknikal");
+            }
+        } catch (err) {
+            console.error("TA fetch error:", err);
+            toast.error("Gagal menghubungi server TA");
+        }
+    }, [activeTicker, taData]);
+
+    // Fetch TA data when switching to TA mode
+    useEffect(() => {
+        if (chartMode === "ta" && chartData.length > 0 && !taData) {
+            fetchTAData();
+        }
+    }, [chartMode, chartData, taData, fetchTAData]);
 
     // Handle URL ticker param
     useEffect(() => {
@@ -363,14 +392,34 @@ export default function Dashboard() {
                                     {chartData.length} candle
                                 </span>
                             </div>
-                            <button
-                                onClick={generateAiInsight}
-                                disabled={aiLoading}
-                                className="flex items-center gap-2 bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-400 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-accent/20"
-                            >
-                                <span className="text-base">✨</span>
-                                {aiLoading ? "Menganalisis…" : "Analisis AI"}
-                            </button>
+
+                            {/* Mode Toggle + AI Button */}
+                            <div className="flex items-center gap-3">
+                                {/* Mode Toggle */}
+                                <div className="flex items-center bg-surface-card border border-border rounded-xl p-1">
+                                    <button
+                                        onClick={() => setChartMode("normal")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${chartMode === "normal" ? "bg-accent text-white shadow-sm" : "text-text-muted hover:text-text-primary"}`}
+                                    >
+                                        Normal
+                                    </button>
+                                    <button
+                                        onClick={() => setChartMode("ta")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${chartMode === "ta" ? "bg-gradient-to-r from-accent to-purple-500 text-white shadow-sm" : "text-text-muted hover:text-text-primary"}`}
+                                    >
+                                        🔬 TA
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={generateAiInsight}
+                                    disabled={aiLoading}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-400 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-accent/20"
+                                >
+                                    <span className="text-base">✨</span>
+                                    {aiLoading ? "Menganalisis…" : "AI Insight"}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Price Summary Card */}
@@ -410,41 +459,130 @@ export default function Dashboard() {
                             );
                         })()}
 
-                        {/* Chart */}
-                        <div className="bg-surface-card border border-border rounded-2xl p-3 sm:p-4 h-[300px] md:h-[500px]">
-                            <StockChart data={chartData} />
-                        </div>
-
-                        {/* Two-column layout: Form + Analysis */}
-                        <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-3' : ''} gap-6`}>
-                            {/* Left: Form (admin only) */}
-                            {isAdmin && (
-                                <div className="lg:col-span-1">
-                                    <AnalysisForm
-                                        ticker={activeTicker}
-                                        onAnalysisAdded={handleAnalysisAdded}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Right: Analysis history */}
-                            <div className="lg:col-span-2">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-text-primary">
-                                        📊 Analisis Tim
-                                    </h3>
-                                    <span className="text-xs text-text-muted">
-                                        {analyses.length} entri
-                                    </span>
+                        {/* NORMAL MODE: Original Chart + Analysis */}
+                        {chartMode === "normal" && (
+                            <>
+                                {/* Chart */}
+                                <div className="bg-surface-card border border-border rounded-2xl p-3 sm:p-4 h-[300px] md:h-[500px]">
+                                    <StockChart data={chartData} />
                                 </div>
 
-                                <AnalysisHistory
-                                    analyses={analyses}
-                                    emptyTicker={activeTicker}
-                                    onDeleted={(id) => setAnalyses((prev) => prev.filter((a) => a._id !== id))}
-                                />
+                                {/* Two-column layout: Form + Analysis */}
+                                <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-3' : ''} gap-6`}>
+                                    {isAdmin && (
+                                        <div className="lg:col-span-1">
+                                            <AnalysisForm
+                                                ticker={activeTicker}
+                                                onAnalysisAdded={handleAnalysisAdded}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className={isAdmin ? 'lg:col-span-2' : ''}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-lg font-semibold text-text-primary">📊 Analisis Tim</h3>
+                                            <span className="text-xs text-text-muted">{analyses.length} entri</span>
+                                        </div>
+                                        <AnalysisHistory
+                                            analyses={analyses}
+                                            emptyTicker={activeTicker}
+                                            onDeleted={(id) => setAnalyses((prev) => prev.filter((a) => a._id !== id))}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* TA MODE: Technical Analysis View */}
+                        {chartMode === "ta" && (
+                            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                                {/* Chart Area */}
+                                <div className="xl:col-span-3 space-y-4">
+                                    {/* Indicator Toggles */}
+                                    <div className="bg-surface-card border border-border rounded-xl p-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {Object.entries(INDICATORS).map(([category, { label, items }]) => (
+                                                <div key={category} className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-text-muted uppercase tracking-wider">{label}:</span>
+                                                    {items.map((item) => (
+                                                        <button
+                                                            key={item.key}
+                                                            onClick={() => setVisibleIndicators((p) => ({ ...p, [item.key]: !p[item.key] }))}
+                                                            className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${visibleIndicators[item.key] ? "bg-accent/20 text-accent border border-accent/30" : "bg-surface-elevated text-text-muted hover:text-text-primary"}`}
+                                                        >
+                                                            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: item.color }} />
+                                                            {item.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* TA Chart */}
+                                    <div className="bg-surface-card border border-border rounded-2xl p-3 sm:p-4">
+                                        {taIndicators.sma ? (
+                                            <TAChart data={chartData} indicators={taIndicators} visibleIndicators={visibleIndicators} height={400} />
+                                        ) : (
+                                            <div className="h-[400px] flex items-center justify-center text-text-muted">
+                                                <div className="text-center">
+                                                    <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3 mx-auto" />
+                                                    <p className="text-sm">Memuat indikator teknikal…</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* TA Analysis Sidebar */}
+                                <div className="xl:col-span-1 space-y-4">
+                                    {taAnalysis?.summary && (
+                                        <div className="bg-surface-card border border-border rounded-xl p-4">
+                                            <h3 className="text-sm font-semibold text-text-primary mb-3">📊 Ringkasan</h3>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-text-muted">Sinyal</span>
+                                                    <span className={`text-sm font-bold ${taAnalysis.summary.overall?.includes("BULLISH") ? "text-emerald-400" : taAnalysis.summary.overall?.includes("BEARISH") ? "text-red-400" : "text-slate-400"}`}>{taAnalysis.summary.overall}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-text-muted">Aksi</span>
+                                                    <span className="text-sm text-text-primary font-medium">{taAnalysis.summary.action}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-text-muted">Kepercayaan</span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${taAnalysis.summary.confidence === "tinggi" ? "bg-emerald-500/20 text-emerald-400" : taAnalysis.summary.confidence === "sedang" ? "bg-amber-500/20 text-amber-400" : "bg-slate-500/20 text-slate-400"}`}>{taAnalysis.summary.confidence?.toUpperCase()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {taAnalysis?.signals && (
+                                        <div className="bg-surface-card border border-border rounded-xl p-4 space-y-3">
+                                            <h3 className="text-sm font-semibold text-text-primary">🔍 Sinyal</h3>
+                                            {Object.entries(taAnalysis.signals).slice(0, 4).map(([key, data]) => (
+                                                <div key={key}>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-xs font-medium text-text-muted uppercase">{key.replace("_", " ")}</span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${data.direction?.includes("bullish") ? "bg-emerald-500/20 text-emerald-400" : data.direction?.includes("bearish") ? "bg-red-500/20 text-red-400" : "bg-slate-500/20 text-slate-400"}`}>{data.direction?.toUpperCase()}</span>
+                                                    </div>
+                                                    {data.signals?.slice(0, 1).map((s, i) => <p key={i} className="text-[10px] text-text-secondary">• {s}</p>)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {taAnalysis?.recommendations?.length > 0 && (
+                                        <div className="bg-surface-card border border-border rounded-xl p-4">
+                                            <h3 className="text-sm font-semibold text-text-primary mb-2">💡 Rekomendasi</h3>
+                                            <div className="space-y-1.5">
+                                                {taAnalysis.recommendations.slice(0, 3).map((rec, i) => (
+                                                    <div key={i} className={`text-[10px] p-2 rounded ${rec.type === "warning" ? "bg-amber-500/10 text-amber-400" : rec.type === "opportunity" ? "bg-emerald-500/10 text-emerald-400" : rec.type === "risk" ? "bg-red-500/10 text-red-400" : "bg-blue-500/10 text-blue-400"}`}>{rec.text}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 )}
             </div>

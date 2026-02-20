@@ -8,6 +8,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import PageSkeleton from "./components/PageSkeleton";
 
 // ── Lazy-loaded pages (code-split into separate chunks) ─────────
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const FundamentalPage = lazy(() => import("./pages/FundamentalPage"));
 const ComparisonPage = lazy(() => import("./pages/ComparisonPage"));
@@ -24,7 +25,6 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
-const TechnicalAnalysisPage = lazy(() => import("./pages/TechnicalAnalysisPage"));
 
 /**
  * ProtectedRoute — redirects to /login if user is not authenticated.
@@ -35,11 +35,11 @@ function ProtectedRoute({ children }) {
 }
 
 /**
- * GuestRoute — redirects to / if user is already authenticated.
+ * GuestRoute — redirects to /dashboard if user is already authenticated.
  */
 function GuestRoute({ children }) {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/" replace /> : children;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
 }
 
 /**
@@ -69,6 +69,9 @@ export default function App() {
       <AuthProvider>
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
+            {/* Landing page — public */}
+            <Route path="/" element={<Page><LandingPage /></Page>} />
+
             {/* Auth pages — only for guests (no sidebar) */}
             <Route path="/login" element={<GuestRoute><Page><LoginPage /></Page></GuestRoute>} />
             <Route path="/register" element={<GuestRoute><Page><RegisterPage /></Page></GuestRoute>} />
@@ -77,14 +80,9 @@ export default function App() {
             <Route path="/reset-password/:token" element={<Page><ResetPasswordPage /></Page>} />
 
             {/* Protected pages — wrapped in AppLayout sidebar */}
-            <Route path="/" element={
+            <Route path="/dashboard" element={
               <ProtectedRoute>
                 <AppLayout><Page><Dashboard /></Page></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/technical-analysis" element={
-              <ProtectedRoute>
-                <AppLayout><Page><TechnicalAnalysisPage /></Page></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/fundamental" element={
