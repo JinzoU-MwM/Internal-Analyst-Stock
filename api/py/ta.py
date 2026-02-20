@@ -4,18 +4,30 @@ import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timedelta
 
+# CORS headers for all responses
+CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 def handler(request):
     """Vercel serverless function handler for technical analysis."""
-    
+
+    # Handle OPTIONS preflight request
+    if request.get('httpMethod') == 'OPTIONS':
+        return {'statusCode': 200, 'body': '', 'headers': CORS_HEADERS}
+
     # Parse query parameters
     query = request.get('queryStringParameters', {}) or {}
     ticker = query.get('ticker', '').upper()
-    
+
     if not ticker:
         return {
             'statusCode': 400,
             'body': json.dumps({'success': False, 'error': 'Ticker parameter required'}),
-            'headers': {'Content-Type': 'application/json'}
+            'headers': CORS_HEADERS
         }
     
     # Auto-append .JK for Indonesian stocks
@@ -34,7 +46,7 @@ def handler(request):
             return {
                 'statusCode': 404,
                 'body': json.dumps({'success': False, 'error': f'No data found for {ticker}'}),
-                'headers': {'Content-Type': 'application/json'}
+                'headers': CORS_HEADERS
             }
         
         # Reset index to make Date a column
@@ -160,7 +172,7 @@ def handler(request):
                 'analysis': analysis
             }, default=str),
             'headers': {
-                'Content-Type': 'application/json',
+                **CORS_HEADERS,
                 'Cache-Control': 's-maxage=300, stale-while-revalidate=60'
             }
         }
@@ -169,7 +181,7 @@ def handler(request):
         return {
             'statusCode': 500,
             'body': json.dumps({'success': False, 'error': str(e)}),
-            'headers': {'Content-Type': 'application/json'}
+            'headers': CORS_HEADERS
         }
 
 
