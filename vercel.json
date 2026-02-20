@@ -1,13 +1,5 @@
 {
     "version": 2,
-    "functions": {
-        "api/index.js": {
-            "runtime": "@vercel/node@3"
-        },
-        "api/py/*.py": {
-            "runtime": "@vercel/python@3.12"
-        }
-    },
     "routes": [
         {
             "src": "/api/py/(.*)",

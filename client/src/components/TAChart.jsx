@@ -1,12 +1,10 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     createChart,
     ColorType,
     CandlestickSeries,
     HistogramSeries,
     LineSeries,
-    BollingerBandsSeries,
-    AreaSeries,
 } from "lightweight-charts";
 
 /**
@@ -39,7 +37,9 @@ export default function TAChart({
     const sma200Ref = useRef(null);
     const ema12Ref = useRef(null);
     const ema26Ref = useRef(null);
-    const bbRef = useRef(null);
+    const bbUpperRef = useRef(null);
+    const bbMiddleRef = useRef(null);
+    const bbLowerRef = useRef(null);
 
     // Separate charts for RSI and MACD
     const rsiContainerRef = useRef(null);
@@ -169,15 +169,30 @@ export default function TAChart({
             crosshairMarkerVisible: false,
         });
 
-        // Bollinger Bands
-        const bb = chart.addSeries(BollingerBandsSeries, {
-            upperLineColor: "#3b82f680",
-            lowerLineColor: "#3b82f680",
-            middleLineColor: "#3b82f640",
+        // Bollinger Bands - using separate LineSeries
+        const bbUpper = chart.addSeries(LineSeries, {
+            color: "#3b82f680",
             lineWidth: 1,
-            areaFillColor: "#3b82f610",
             priceLineVisible: false,
             lastValueVisible: false,
+            crosshairMarkerVisible: false,
+        });
+
+        const bbMiddle = chart.addSeries(LineSeries, {
+            color: "#3b82f640",
+            lineWidth: 1,
+            lineStyle: 2,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+        });
+
+        const bbLower = chart.addSeries(LineSeries, {
+            color: "#3b82f680",
+            lineWidth: 1,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
         });
 
         chartRef.current = chart;
@@ -188,7 +203,9 @@ export default function TAChart({
         sma200Ref.current = sma200;
         ema12Ref.current = ema12;
         ema26Ref.current = ema26;
-        bbRef.current = bb;
+        bbUpperRef.current = bbUpper;
+        bbMiddleRef.current = bbMiddle;
+        bbLowerRef.current = bbLower;
 
         // Responsive resize
         const resizeObserver = new ResizeObserver((entries) => {
@@ -439,18 +456,22 @@ export default function TAChart({
         }
 
         // Bollinger Bands
-        if (visibleIndicators.bb && bbRef.current && indicators.bb) {
-            const bbData = indicators.bb
-                .filter((d) => d.upper != null && d.lower != null)
-                .map((d) => ({
-                    time: d.time,
-                    upper: d.upper,
-                    middle: d.middle,
-                    lower: d.lower,
-                }));
-            bbRef.current.setData(bbData);
-        } else if (bbRef.current) {
-            bbRef.current.setData([]);
+        if (visibleIndicators.bb && indicators.bb) {
+            const bbData = indicators.bb.filter((d) => d.upper != null && d.lower != null);
+
+            if (bbUpperRef.current) {
+                bbUpperRef.current.setData(bbData.map((d) => ({ time: d.time, value: d.upper })));
+            }
+            if (bbMiddleRef.current) {
+                bbMiddleRef.current.setData(bbData.map((d) => ({ time: d.time, value: d.middle })));
+            }
+            if (bbLowerRef.current) {
+                bbLowerRef.current.setData(bbData.map((d) => ({ time: d.time, value: d.lower })));
+            }
+        } else {
+            if (bbUpperRef.current) bbUpperRef.current.setData([]);
+            if (bbMiddleRef.current) bbMiddleRef.current.setData([]);
+            if (bbLowerRef.current) bbLowerRef.current.setData([]);
         }
     }, [indicators, visibleIndicators, data]);
 
