@@ -4,8 +4,10 @@
  */
 
 const PAKASIR_BASE_URL = "https://app.pakasir.com/api";
-const API_KEY = process.env.PAKASIR_API_KEY;
-const PROJECT_SLUG = process.env.PAKASIR_SLUG;
+
+// Read env vars at runtime to ensure they're available
+const getApiKey = () => process.env.PAKASIR_API_KEY;
+const getProjectSlug = () => process.env.PAKASIR_SLUG;
 
 /**
  * Create a new transaction in Pak Kasir
@@ -27,9 +29,16 @@ export async function createTransaction({
     description = "Premium Subscription",
 }) {
     try {
+        const apiKey = getApiKey();
+        const projectSlug = getProjectSlug();
+
+        if (!apiKey || !projectSlug) {
+            throw new Error(`Missing Pakasir config: API_KEY=${!!apiKey}, SLUG=${!!projectSlug}`);
+        }
+
         const payload = {
-            api_key: API_KEY,
-            project: PROJECT_SLUG,
+            api_key: apiKey,
+            project: projectSlug,
             order_id: orderId,
             amount: amount,
             customer_email: customerEmail,
@@ -37,7 +46,7 @@ export async function createTransaction({
             description: description,
         };
 
-        console.log("[Pakasir] Creating transaction:", { orderId, amount, method, project: PROJECT_SLUG });
+        console.log("[Pakasir] Creating transaction:", { orderId, amount, method, project: projectSlug });
 
         const response = await fetch(`${PAKASIR_BASE_URL}/transactioncreate/${method}`, {
             method: "POST",
@@ -69,7 +78,9 @@ export async function createTransaction({
  */
 export async function getTransactionDetail(orderId) {
     try {
-        const url = `${PAKASIR_BASE_URL}/transactiondetail?project=${PROJECT_SLUG}&order_id=${orderId}&api_key=${API_KEY}`;
+        const apiKey = getApiKey();
+        const projectSlug = getProjectSlug();
+        const url = `${PAKASIR_BASE_URL}/transactiondetail?project=${projectSlug}&order_id=${orderId}&api_key=${apiKey}`;
         const response = await fetch(url, {
             method: "GET",
             headers: {
@@ -98,14 +109,16 @@ export async function getTransactionDetail(orderId) {
  */
 export async function cancelTransaction(orderId) {
     try {
+        const apiKey = getApiKey();
+        const projectSlug = getProjectSlug();
         const response = await fetch(`${PAKASIR_BASE_URL}/transactioncancel`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                api_key: API_KEY,
-                project: PROJECT_SLUG,
+                api_key: apiKey,
+                project: projectSlug,
                 order_id: orderId,
             }),
         });
@@ -138,14 +151,16 @@ export async function simulatePayment(orderId, amount) {
     }
 
     try {
+        const apiKey = getApiKey();
+        const projectSlug = getProjectSlug();
         const response = await fetch(`${PAKASIR_BASE_URL}/paymentsimulation`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                api_key: API_KEY,
-                project: PROJECT_SLUG,
+                api_key: apiKey,
+                project: projectSlug,
                 order_id: orderId,
                 amount: amount,
             }),
