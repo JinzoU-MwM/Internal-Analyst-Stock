@@ -30,10 +30,10 @@ const formatDate = (date) => {
 };
 
 /**
- * Generate detailed technical analysis with signals and recommendations.
+ * Generate detailed technical analysis with signals and recommendations (Indonesian).
  */
 function generateAnalysis(df, ticker) {
-    if (df.length < 50) return { error: "Insufficient data for analysis" };
+    if (df.length < 50) return { error: "Data tidak cukup untuk analisis" };
 
     const latest = df[df.length - 1];
     const prev = df[df.length - 2];
@@ -49,7 +49,7 @@ function generateAnalysis(df, ticker) {
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // TREND ANALYSIS
+    // ANALISIS TREND
     // ═══════════════════════════════════════════════════════════════
     const trendSignals = [];
     let trendScore = 0;
@@ -60,30 +60,30 @@ function generateAnalysis(df, ticker) {
 
     if (sma20) {
         if (price > sma20) {
-            trendSignals.push(`Price above SMA-20 (${sma20.toFixed(2)}) — Short-term bullish`);
+            trendSignals.push(`Harga di atas SMA-20 (${sma20.toFixed(2)}) — Bullish jangka pendek`);
             trendScore += 1;
         } else {
-            trendSignals.push(`Price below SMA-20 (${sma20.toFixed(2)}) — Short-term bearish`);
+            trendSignals.push(`Harga di bawah SMA-20 (${sma20.toFixed(2)}) — Bearish jangka pendek`);
             trendScore -= 1;
         }
     }
 
     if (sma50) {
         if (price > sma50) {
-            trendSignals.push(`Price above SMA-50 (${sma50.toFixed(2)}) — Medium-term bullish`);
+            trendSignals.push(`Harga di atas SMA-50 (${sma50.toFixed(2)}) — Bullish jangka menengah`);
             trendScore += 1;
         } else {
-            trendSignals.push(`Price below SMA-50 (${sma50.toFixed(2)}) — Medium-term bearish`);
+            trendSignals.push(`Harga di bawah SMA-50 (${sma50.toFixed(2)}) — Bearish jangka menengah`);
             trendScore -= 1;
         }
     }
 
     if (sma200) {
         if (price > sma200) {
-            trendSignals.push(`Price above SMA-200 (${sma200.toFixed(2)}) — Long-term uptrend`);
+            trendSignals.push(`Harga di atas SMA-200 (${sma200.toFixed(2)}) — Uptrend jangka panjang`);
             trendScore += 2;
         } else {
-            trendSignals.push(`Price below SMA-200 (${sma200.toFixed(2)}) — Long-term downtrend`);
+            trendSignals.push(`Harga di bawah SMA-200 (${sma200.toFixed(2)}) — Downtrend jangka panjang`);
             trendScore -= 2;
         }
     }
@@ -91,10 +91,10 @@ function generateAnalysis(df, ticker) {
     // Golden/Death Cross
     if (sma50 && sma200 && prev.sma50 && prev.sma200) {
         if (sma50 > sma200 && prev.sma50 <= prev.sma200) {
-            trendSignals.push("⚠️ GOLDEN CROSS detected — Strong bullish signal");
+            trendSignals.push("⚠️ GOLDEN CROSS terdeteksi — Sinyal bullish kuat");
             trendScore += 3;
         } else if (sma50 < sma200 && prev.sma50 >= prev.sma200) {
-            trendSignals.push("⚠️ DEATH CROSS detected — Strong bearish signal");
+            trendSignals.push("⚠️ DEATH CROSS terdeteksi — Sinyal bearish kuat");
             trendScore -= 3;
         }
     }
@@ -102,11 +102,11 @@ function generateAnalysis(df, ticker) {
     analysis.signals.trend = {
         score: trendScore,
         signals: trendSignals,
-        direction: trendScore > 0 ? "bullish" : trendScore < 0 ? "bearish" : "neutral",
+        direction: trendScore > 0 ? "bullish" : trendScore < 0 ? "bearish" : "netral",
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // MOMENTUM ANALYSIS
+    // ANALISIS MOMENTUM
     // ═══════════════════════════════════════════════════════════════
     const momentumSignals = [];
     let momentumScore = 0;
@@ -116,28 +116,28 @@ function generateAnalysis(df, ticker) {
 
     if (rsi != null) {
         if (rsi > 70) {
-            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — OVERBOUGHT zone, potential reversal`);
+            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Zona OVERBOUGHT, potensi reversal`);
             momentumScore -= 2;
         } else if (rsi < 30) {
-            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — OVERSOLD zone, potential bounce`);
+            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Zona OVERSOLD, potensi bounce`);
             momentumScore += 2;
         } else if (rsi > 60) {
-            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Bullish momentum`);
+            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Momentum bullish`);
             momentumScore += 1;
         } else if (rsi < 40) {
-            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Bearish momentum`);
+            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Momentum bearish`);
             momentumScore -= 1;
         } else {
-            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Neutral zone`);
+            momentumSignals.push(`RSI (${rsi.toFixed(1)}) — Zona netral`);
         }
 
         // RSI Divergence
         if (prevRsi != null) {
             if (price > prev.close && rsi < prevRsi) {
-                momentumSignals.push("⚠️ Bearish RSI divergence detected");
+                momentumSignals.push("⚠️ Divergence bearish RSI terdeteksi");
                 momentumScore -= 1;
             } else if (price < prev.close && rsi > prevRsi) {
-                momentumSignals.push("⚠️ Bullish RSI divergence detected");
+                momentumSignals.push("⚠️ Divergence bullish RSI terdeteksi");
                 momentumScore += 1;
             }
         }
@@ -151,20 +151,20 @@ function generateAnalysis(df, ticker) {
 
     if (macd != null && macdSignal != null) {
         if (macd > macdSignal) {
-            momentumSignals.push("MACD above signal line — Bullish");
+            momentumSignals.push("MACD di atas signal line — Bullish");
             momentumScore += 1;
         } else {
-            momentumSignals.push("MACD below signal line — Bearish");
+            momentumSignals.push("MACD di bawah signal line — Bearish");
             momentumScore -= 1;
         }
 
         // MACD Crossover
         if (prevMacdHist != null && macdHist != null) {
             if (prevMacdHist < 0 && macdHist > 0) {
-                momentumSignals.push("⚠️ BULLISH MACD crossover — Buy signal");
+                momentumSignals.push("⚠️ Crossover MACD BULLISH — Sinyal beli");
                 momentumScore += 2;
             } else if (prevMacdHist > 0 && macdHist < 0) {
-                momentumSignals.push("⚠️ BEARISH MACD crossover — Sell signal");
+                momentumSignals.push("⚠️ Crossover MACD BEARISH — Sinyal jual");
                 momentumScore -= 2;
             }
         }
@@ -173,11 +173,11 @@ function generateAnalysis(df, ticker) {
     analysis.signals.momentum = {
         score: momentumScore,
         signals: momentumSignals,
-        direction: momentumScore > 0 ? "bullish" : momentumScore < 0 ? "bearish" : "neutral",
+        direction: momentumScore > 0 ? "bullish" : momentumScore < 0 ? "bearish" : "netral",
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // VOLATILITY ANALYSIS
+    // ANALISIS VOLATILITAS
     // ═══════════════════════════════════════════════════════════════
     const volatilitySignals = [];
     let volatilityScore = 0;
@@ -190,13 +190,13 @@ function generateAnalysis(df, ticker) {
         const bbPosition = (price - bbLower) / bbRange;
 
         if (price > bbUpper) {
-            volatilitySignals.push("Price above upper Bollinger Band — Overextended");
+            volatilitySignals.push("Harga di atas Bollinger Band atas — Overextended");
             volatilityScore -= 1;
         } else if (price < bbLower) {
-            volatilitySignals.push("Price below lower Bollinger Band — Oversold");
+            volatilitySignals.push("Harga di bawah Bollinger Band bawah — Oversold");
             volatilityScore += 1;
         } else {
-            volatilitySignals.push(`Price within Bollinger Bands (${(bbPosition * 100).toFixed(0)}% position)`);
+            volatilitySignals.push(`Harga dalam Bollinger Bands (posisi ${(bbPosition * 100).toFixed(0)}%)`);
         }
     }
 
@@ -205,22 +205,22 @@ function generateAnalysis(df, ticker) {
     if (atr != null) {
         const atrPct = (atr / price) * 100;
         if (atrPct > 3) {
-            volatilitySignals.push(`High volatility — ATR ${atrPct.toFixed(2)}% of price`);
+            volatilitySignals.push(`Volatilitas tinggi — ATR ${atrPct.toFixed(2)}% dari harga`);
         } else if (atrPct < 1) {
-            volatilitySignals.push(`Low volatility — ATR ${atrPct.toFixed(2)}% of price`);
+            volatilitySignals.push(`Volatilitas rendah — ATR ${atrPct.toFixed(2)}% dari harga`);
         } else {
-            volatilitySignals.push(`Normal volatility — ATR ${atrPct.toFixed(2)}% of price`);
+            volatilitySignals.push(`Volatilitas normal — ATR ${atrPct.toFixed(2)}% dari harga`);
         }
     }
 
     analysis.signals.volatility = {
         score: volatilityScore,
         signals: volatilitySignals,
-        direction: volatilityScore < 0 ? "high_volatility" : volatilityScore > 0 ? "low_volatility" : "normal",
+        direction: volatilityScore < 0 ? "volatilitas_tinggi" : volatilityScore > 0 ? "volatilitas_rendah" : "normal",
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // VOLUME ANALYSIS
+    // ANALISIS VOLUME
     // ═══════════════════════════════════════════════════════════════
     const volumeSignals = [];
     let volumeScore = 0;
@@ -232,25 +232,25 @@ function generateAnalysis(df, ticker) {
         const volRatio = volume / avgVolume;
 
         if (volRatio > 2) {
-            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x average — Unusually high activity`);
+            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x rata-rata — Aktivitas sangat tinggi`);
             volumeScore += 2;
         } else if (volRatio > 1.5) {
-            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x average — Above normal`);
+            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x rata-rata — Di atas normal`);
             volumeScore += 1;
         } else if (volRatio < 0.5) {
-            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x average — Low activity`);
+            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x rata-rata — Aktivitas rendah`);
             volumeScore -= 1;
         } else {
-            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x average — Normal`);
+            volumeSignals.push(`Volume ${volRatio.toFixed(1)}x rata-rata — Normal`);
         }
 
         // Volume + Price action
         const priceChange = price - prev.close;
         if (priceChange > 0 && volRatio > 1.2) {
-            volumeSignals.push("Rising price with high volume — Bullish confirmation");
+            volumeSignals.push("Harga naik dengan volume tinggi — Konfirmasi bullish");
             volumeScore += 1;
         } else if (priceChange < 0 && volRatio > 1.2) {
-            volumeSignals.push("Falling price with high volume — Bearish confirmation");
+            volumeSignals.push("Harga turun dengan volume tinggi — Konfirmasi bearish");
             volumeScore -= 1;
         }
     }
@@ -258,11 +258,11 @@ function generateAnalysis(df, ticker) {
     analysis.signals.volume = {
         score: volumeScore,
         signals: volumeSignals,
-        direction: volumeScore > 0 ? "bullish" : volumeScore < 0 ? "bearish" : "neutral",
+        direction: volumeScore > 0 ? "bullish" : volumeScore < 0 ? "bearish" : "netral",
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // TREND STRENGTH (ADX)
+    // KEKUATAN TREND (ADX)
     // ═══════════════════════════════════════════════════════════════
     const adx = latest.adx;
     const adxSignals = [];
@@ -270,15 +270,15 @@ function generateAnalysis(df, ticker) {
 
     if (adx != null) {
         if (adx > 40) {
-            adxSignals.push(`ADX (${adx.toFixed(1)}) — Very strong trend`);
+            adxSignals.push(`ADX (${adx.toFixed(1)}) — Trend sangat kuat`);
             adxScore += 2;
         } else if (adx > 25) {
-            adxSignals.push(`ADX (${adx.toFixed(1)}) — Strong trend`);
+            adxSignals.push(`ADX (${adx.toFixed(1)}) — Trend kuat`);
             adxScore += 1;
         } else if (adx > 20) {
-            adxSignals.push(`ADX (${adx.toFixed(1)}) — Developing trend`);
+            adxSignals.push(`ADX (${adx.toFixed(1)}) — Trend berkembang`);
         } else {
-            adxSignals.push(`ADX (${adx.toFixed(1)}) — Weak/no trend (ranging)`);
+            adxSignals.push(`ADX (${adx.toFixed(1)}) — Trend lemah/sideways`);
             adxScore -= 1;
         }
     }
@@ -286,69 +286,69 @@ function generateAnalysis(df, ticker) {
     analysis.signals.trend_strength = {
         score: adxScore,
         signals: adxSignals,
-        direction: adxScore > 1 ? "strong" : adxScore < 0 ? "weak" : "moderate",
+        direction: adxScore > 1 ? "kuat" : adxScore < 0 ? "lemah" : "sedang",
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // OVERALL SUMMARY & RECOMMENDATIONS
+    // RINGKASAN & REKOMENDASI
     // ═══════════════════════════════════════════════════════════════
     const totalScore = (trendScore + momentumScore + volumeScore) / 3;
 
     let overall, action;
     if (totalScore >= 2) {
-        overall = "STRONG BULLISH";
-        action = "BUY";
+        overall = "SANGAT BULLISH";
+        action = "BELI";
     } else if (totalScore >= 1) {
         overall = "BULLISH";
-        action = "BUY / HOLD";
+        action = "BELI / TAHAN";
     } else if (totalScore >= 0.5) {
-        overall = "SLIGHTLY BULLISH";
-        action = "HOLD / ACCUMULATE";
+        overall = "CENDERUNG BULLISH";
+        action = "TAHAN / AKUMULASI";
     } else if (totalScore <= -2) {
-        overall = "STRONG BEARISH";
-        action = "SELL";
+        overall = "SANGAT BEARISH";
+        action = "JUAL";
     } else if (totalScore <= -1) {
         overall = "BEARISH";
-        action = "SELL / AVOID";
+        action = "JUAL / HINDARI";
     } else if (totalScore <= -0.5) {
-        overall = "SLIGHTLY BEARISH";
-        action = "HOLD / REDUCE";
+        overall = "CENDERUNG BEARISH";
+        action = "TAHAN / KURANGI";
     } else {
-        overall = "NEUTRAL";
-        action = "HOLD / WAIT";
+        overall = "NETRAL";
+        action = "TAHAN / TUNGGU";
     }
 
     analysis.summary = {
         overall,
         action,
         score: Math.round(totalScore * 100) / 100,
-        confidence: Math.abs(totalScore) > 1.5 ? "high" : Math.abs(totalScore) > 0.5 ? "medium" : "low",
+        confidence: Math.abs(totalScore) > 1.5 ? "tinggi" : Math.abs(totalScore) > 0.5 ? "sedang" : "rendah",
     };
 
-    // Generate recommendations
-    if (action.includes("SELL")) {
+    // Generate rekomendasi
+    if (action.includes("JUAL")) {
         analysis.recommendations.push({
             type: "warning",
-            text: `Consider reducing positions or setting tight stop-losses for ${ticker}`,
+            text: `Pertimbangkan untuk mengurangi posisi atau pasang stop-loss ketat untuk ${ticker}`,
         });
-    } else if (action.includes("BUY")) {
+    } else if (action.includes("BELI")) {
         analysis.recommendations.push({
             type: "opportunity",
-            text: `${ticker} shows bullish signals — consider accumulating on pullbacks`,
+            text: `${ticker} menunjukkan sinyal bullish — pertimbangkan akumulasi saat pullback`,
         });
     }
 
     if (bbLower != null && sma20 != null) {
         analysis.recommendations.push({
             type: "info",
-            text: `Entry zone: ${Math.round(bbLower)} - ${Math.round(sma20)}`,
+            text: `Zona entry: ${Math.round(bbLower)} - ${Math.round(sma20)}`,
         });
     }
 
     if (bbUpper != null) {
         analysis.recommendations.push({
             type: "info",
-            text: `Resistance zone: ${Math.round(bbUpper)} - ${Math.round(bbUpper * 1.02)}`,
+            text: `Zona resistance: ${Math.round(bbUpper)} - ${Math.round(bbUpper * 1.02)}`,
         });
     }
 
@@ -356,7 +356,7 @@ function generateAnalysis(df, ticker) {
         const stopLoss = price - atr * 2;
         analysis.recommendations.push({
             type: "risk",
-            text: `Suggested stop-loss: ${Math.round(stopLoss)} (2x ATR below current price)`,
+            text: `Stop-loss disarankan: ${Math.round(stopLoss)} (2x ATR di bawah harga saat ini)`,
         });
     }
 
