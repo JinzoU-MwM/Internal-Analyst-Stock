@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { protect, requirePremium } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -69,8 +70,9 @@ async function proxyRequest(url) {
 /**
  * GET /api/msci/screener
  * Proxy: screener list (msci-candidates).
+ * Requires Premium subscription.
  */
-router.get("/screener", async (req, res) => {
+router.get("/screener", protect, requirePremium, async (req, res) => {
     try {
         const params = new URLSearchParams(req.query).toString();
         const url = `${TRADERSAHAM_API}/analytics/screener/msci-candidates?${params}`;
@@ -93,8 +95,9 @@ router.get("/screener", async (req, res) => {
 /**
  * GET /api/msci/history/:stockCode
  * Proxy: MSCI market cap history for chart.
+ * Requires Premium subscription.
  */
-router.get("/history/:stockCode", async (req, res) => {
+router.get("/history/:stockCode", protect, requirePremium, async (req, res) => {
     try {
         const { stockCode } = req.params;
         const url = `${TRADERSAHAM_API}/analytics/screener/msci-history/${stockCode}`;
@@ -115,8 +118,9 @@ router.get("/history/:stockCode", async (req, res) => {
 /**
  * GET /api/msci/ownership/:stockCode
  * Proxy: ownership/shares data.
+ * Requires Premium subscription.
  */
-router.get("/ownership/:stockCode", async (req, res) => {
+router.get("/ownership/:stockCode", protect, requirePremium, async (req, res) => {
     try {
         const { stockCode } = req.params;
         const params = new URLSearchParams(req.query).toString();

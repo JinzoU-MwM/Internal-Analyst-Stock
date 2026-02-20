@@ -84,6 +84,24 @@ const userSchema = new mongoose.Schema(
                 addedAt: { type: Date, default: Date.now },
             },
         ],
+        // Subscription/Premium system
+        subscription: {
+            plan: {
+                type: String,
+                enum: ["free", "premium"],
+                default: "free",
+            },
+            status: {
+                type: String,
+                enum: ["none", "trial", "active", "expired", "cancelled"],
+                default: "none",
+            },
+            startDate: { type: Date },
+            endDate: { type: Date },
+            trialEndsAt: { type: Date },
+            // Pak Kasir integration
+            pakasirCustomerId: { type: String },
+        },
     },
     {
         timestamps: true,

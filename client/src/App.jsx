@@ -25,6 +25,7 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ToolsPage = lazy(() => import("./pages/ToolsPage"));
+const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
 
 /**
  * ProtectedRoute — redirects to /login if user is not authenticated.
@@ -138,6 +139,11 @@ export default function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <AppLayout><Page><ProfilePage /></Page></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/subscription" element={
+              <ProtectedRoute>
+                <AppLayout><Page><SubscriptionPage /></Page></AppLayout>
               </ProtectedRoute>
             } />
             {/* Backward-compatible redirects */}
