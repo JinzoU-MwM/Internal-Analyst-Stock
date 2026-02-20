@@ -12,6 +12,7 @@ import brokerRoutes from "./routes/brokerRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
 import konglomeratRoutes from "./routes/konglomeratRoutes.js";
 import msciRoutes from "./routes/msciRoutes.js";
+import taRoutes from "./routes/taRoutes.js";
 import { cache } from "./utils/cache.js";
 import { protect, authorize } from "./middleware/auth.js";
 
@@ -62,6 +63,7 @@ app.use("/api/brokers", brokerRoutes);
 app.use("/api/market", marketRoutes);
 app.use("/api/konglomerat", konglomeratRoutes);
 app.use("/api/msci", msciRoutes);
+app.use("/api/ta", taRoutes);
 
 
 // ── Cache management (admin only) ───────────────────────────

@@ -69,7 +69,7 @@ export default function TechnicalAnalysisPage() {
 
         try {
             // Call Python TA endpoint
-            const res = await fetch(`/api/py/ta.py?ticker=${encodeURIComponent(symbol)}`);
+            const res = await fetch(`/api/ta?ticker=${encodeURIComponent(symbol)}`);
             const data = await res.json();
 
             if (data.success) {
